@@ -229,6 +229,8 @@ public sealed class ViewModelTests
         Assert.True(shell.Connection.IsConnected);
         Assert.True(shell.Network.IsVisible);
         Assert.True(shell.Network.IsDirty);
+        Assert.False(shell.Network.IsConnected);
+        Assert.Equal("Applied.", shell.Network.ResultBanner);
         Assert.DoesNotContain(
             "not reachable",
             shell.Network.ResultBanner ?? string.Empty,
