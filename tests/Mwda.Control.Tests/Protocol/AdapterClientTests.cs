@@ -55,7 +55,7 @@ public sealed class AdapterClientTests
         {
             requests.Add(await HttpRequestSnapshot.CreateAsync(request));
             return requests.Count == 1
-                ? TextResponse(HttpStatusCode.OK, "not-json-and-not-required")
+                ? JsonResponse("{}")
                 : JsonResponse("""{"DeviceName":"Room+West"}""");
         });
         using var client = CreateClient(handler);
@@ -79,7 +79,7 @@ public sealed class AdapterClientTests
     {
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.Query.Contains("SetDeviceName", StringComparison.Ordinal)
-                ? TextResponse(HttpStatusCode.OK, "ok")
+                ? JsonResponse("{}")
                 : JsonResponse("""{"DeviceName":"room+west"}"""));
         using var client = CreateClient(handler);
 
@@ -97,7 +97,7 @@ public sealed class AdapterClientTests
     {
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.Query.Contains("SetOverscanSetting", StringComparison.Ordinal)
-                ? TextResponse(HttpStatusCode.NoContent, string.Empty)
+                ? JsonResponse("{}")
                 : JsonResponse("""{"IsAutoAdjust":true,"OverscanSettingValue":25}"""));
         using var client = CreateClient(handler);
 
@@ -109,7 +109,7 @@ public sealed class AdapterClientTests
     {
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.Query.Contains("SetPasswordProtect", StringComparison.Ordinal)
-                ? TextResponse(HttpStatusCode.OK, "accepted")
+                ? JsonResponse("{}")
                 : JsonResponse("""{"PasswordProtect":true}"""));
         using var client = CreateClient(handler);
 
@@ -145,11 +145,59 @@ public sealed class AdapterClientTests
     }
 
     [Fact]
+    public async Task SuccessfulWriteWithMalformedBodyFailsBeforeMatchingReadBack()
+    {
+        var requestCount = 0;
+        using var handler = new StubHttpMessageHandler(_ =>
+        {
+            requestCount++;
+            return requestCount == 1
+                ? TextResponse(HttpStatusCode.OK, "private malformed write payload")
+                : JsonResponse("""{"DeviceName":"Room+West"}""");
+        });
+        using var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+            () => client.SetDeviceNameAsync("Room+West"));
+
+        Assert.Equal(1, requestCount);
+        Assert.Contains(nameof(AdapterOperation.SetDeviceName), exception.Message);
+        Assert.Contains("200", exception.Message);
+        Assert.Contains("redacted body prefix", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("private malformed write payload", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"accepted\"")]
+    public async Task SuccessfulWriteWithNonObjectJsonFailsBeforeReadBack(string writeBody)
+    {
+        var requestCount = 0;
+        using var handler = new StubHttpMessageHandler(_ =>
+        {
+            requestCount++;
+            return requestCount == 1
+                ? JsonResponse(writeBody)
+                : JsonResponse("""{"DeviceName":"Room+West"}""");
+        });
+        using var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+            () => client.SetDeviceNameAsync("Room+West"));
+
+        Assert.Equal(1, requestCount);
+        Assert.Contains(nameof(AdapterOperation.SetDeviceName), exception.Message);
+        Assert.Contains("200", exception.Message);
+        Assert.Contains("redacted body prefix", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task MalformedReadBackUsesWriteOperationContext()
     {
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.Query.Contains("SetDeviceName", StringComparison.Ordinal)
-                ? TextResponse(HttpStatusCode.OK, "accepted")
+                ? JsonResponse("{}")
                 : TextResponse(HttpStatusCode.OK, "private malformed payload"));
         using var client = CreateClient(handler);
 
@@ -184,7 +232,7 @@ public sealed class AdapterClientTests
                     await releaseFirstWrite.Task.WaitAsync(cancellationToken);
                 }
 
-                return TextResponse(HttpStatusCode.OK, "accepted");
+                return JsonResponse("{}");
             }
 
             Assert.True(responses.TryDequeue(out var response));

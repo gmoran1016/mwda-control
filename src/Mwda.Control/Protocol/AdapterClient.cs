@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 
 namespace Mwda.Control.Protocol;
 
@@ -204,6 +205,7 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
             using var request = createRequest(GetWriteEncoding(operation));
             var response = await _transport.SendAsync(request, cancellationToken);
             EnsureSuccess(operation, response);
+            ValidateWriteResponse(operation, response);
             await verifyReadBack(cancellationToken);
         }
         finally
@@ -290,6 +292,33 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                 response.StatusCode,
                 response.Body,
                 "The adapter returned a non-success status.");
+        }
+    }
+
+    private static void ValidateWriteResponse(
+        AdapterOperation operation,
+        AdapterHttpResponse response)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(response.Body);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw ProtocolFailure(
+                    operation,
+                    response.StatusCode,
+                    response.Body,
+                    "The successful write response was not a JSON object.");
+            }
+        }
+        catch (JsonException exception)
+        {
+            throw ProtocolFailure(
+                operation,
+                response.StatusCode,
+                response.Body,
+                "The successful write response was not valid JSON.",
+                exception);
         }
     }
 

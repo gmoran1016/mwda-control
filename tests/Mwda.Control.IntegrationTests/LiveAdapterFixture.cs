@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Net;
 using Mwda.Control.Protocol;
 
@@ -8,6 +9,8 @@ public sealed class LiveAdapterFixture : IDisposable
     private const string RunLiveTestsVariable = "MWDA_RUN_LIVE_TESTS";
     private const string AdapterIpVariable = "MWDA_ADAPTER_IP";
 
+    private readonly WriteEncodingCharacterization _writeEncodingCharacterization = new();
+
     private LiveAdapterFixture(AdapterEndpoint endpoint)
     {
         Endpoint = endpoint;
@@ -17,6 +20,9 @@ public sealed class LiveAdapterFixture : IDisposable
     public AdapterEndpoint Endpoint { get; }
 
     public AdapterClient Client { get; }
+
+    public IReadOnlyDictionary<AdapterOperation, ProtocolWriteEncoding> AcceptedWriteEncodings =>
+        _writeEncodingCharacterization.AcceptedEncodings;
 
     public static string? GetSkipReason()
     {
@@ -52,7 +58,94 @@ public sealed class LiveAdapterFixture : IDisposable
         return true;
     }
 
+    public Task<ProtocolWriteEncoding> CharacterizeWriteEncodingAsync(
+        AdapterOperation operation,
+        Func<ProtocolWriteEncoding, Task<bool>> tryCandidate,
+        Func<ProtocolWriteEncoding, Task> restore) =>
+        _writeEncodingCharacterization.SelectAndRecordAsync(operation, tryCandidate, restore);
+
+    public AdapterClient CreateCandidateClient(
+        AdapterOperation operation,
+        ProtocolWriteEncoding encoding)
+    {
+        var encodings = new Dictionary<AdapterOperation, ProtocolWriteEncoding>(AcceptedWriteEncodings)
+        {
+            [operation] = encoding,
+        };
+        return new AdapterClient(Endpoint, TimeSpan.FromSeconds(3), encodings);
+    }
+
+    public AdapterClient CreateRestorationClient(
+        AdapterOperation operation,
+        ProtocolWriteEncoding fallbackEncoding)
+    {
+        if (AcceptedWriteEncodings.ContainsKey(operation))
+        {
+            return new AdapterClient(Endpoint, TimeSpan.FromSeconds(3), AcceptedWriteEncodings);
+        }
+
+        return CreateCandidateClient(operation, fallbackEncoding);
+    }
+
     public void Dispose() => Client.Dispose();
+}
+
+internal sealed class WriteEncodingCharacterization
+{
+    private readonly Dictionary<AdapterOperation, ProtocolWriteEncoding> _acceptedEncodings = new();
+    private readonly IReadOnlyDictionary<AdapterOperation, ProtocolWriteEncoding> _acceptedEncodingsView;
+
+    public WriteEncodingCharacterization()
+    {
+        _acceptedEncodingsView = new ReadOnlyDictionary<AdapterOperation, ProtocolWriteEncoding>(
+            _acceptedEncodings);
+    }
+
+    public IReadOnlyDictionary<AdapterOperation, ProtocolWriteEncoding> AcceptedEncodings =>
+        _acceptedEncodingsView;
+
+    public async Task<ProtocolWriteEncoding> SelectAndRecordAsync(
+        AdapterOperation operation,
+        Func<ProtocolWriteEncoding, Task<bool>> tryCandidate,
+        Func<ProtocolWriteEncoding, Task> restore)
+    {
+        ArgumentNullException.ThrowIfNull(tryCandidate);
+        ArgumentNullException.ThrowIfNull(restore);
+        _ = ProtocolRequestCatalog.GetReadBackOperation(operation);
+
+        if (_acceptedEncodings.TryGetValue(operation, out var recorded))
+        {
+            return recorded;
+        }
+
+        foreach (var candidate in ProtocolRequestCatalog.WriteEncodingCandidates)
+        {
+            var accepted = false;
+            try
+            {
+                accepted = await tryCandidate(candidate);
+                if (accepted)
+                {
+                    _acceptedEncodings.Add(operation, candidate);
+                }
+            }
+            finally
+            {
+                var restorationEncoding = _acceptedEncodings.TryGetValue(operation, out var acceptedEncoding)
+                    ? acceptedEncoding
+                    : candidate;
+                await restore(restorationEncoding);
+            }
+
+            if (accepted)
+            {
+                return candidate;
+            }
+        }
+
+        throw new AdapterProtocolException(
+            $"No closed write-encoding candidate was accepted for {operation} by exact read-back.");
+    }
 }
 
 public sealed class LiveAdapterFactAttribute : FactAttribute

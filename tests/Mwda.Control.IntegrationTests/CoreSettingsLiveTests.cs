@@ -6,7 +6,7 @@ namespace Mwda.Control.IntegrationTests;
 public sealed class CoreSettingsLiveTests
 {
     [LiveAdapterFact]
-    public async Task RecordedQueryCandidatesRequireExactLiveReadBackAndRestore()
+    public async Task ClosedCandidatesRequireExactLiveReadBackAndRestore()
     {
         Assert.True(LiveAdapterFixture.TryCreate(out var fixture));
         using var live = fixture!;
@@ -15,30 +15,36 @@ public sealed class CoreSettingsLiveTests
         var originalOverscan = await live.Client.GetOverscanAsync();
         var originalProtection = await live.Client.GetPasswordProtectionAsync();
 
-        await CharacterizeDeviceNameAndRestoreAsync(live.Client, originalIdentity.DeviceName);
-        await CharacterizeOverscanAndRestoreAsync(live.Client, originalOverscan);
-        await CharacterizePasswordProtectionAndRestoreAsync(live.Client, originalProtection.Enabled);
+        await CharacterizeDeviceNameAndRestoreAsync(live, originalIdentity.DeviceName);
+        await CharacterizeOverscanAndRestoreAsync(live, originalOverscan);
+        await CharacterizePasswordProtectionAndRestoreAsync(live, originalProtection.Enabled);
+
+        Assert.Equal(3, live.AcceptedWriteEncodings.Count);
     }
 
     private static async Task CharacterizeDeviceNameAndRestoreAsync(
-        AdapterClient client,
+        LiveAdapterFixture live,
         string originalDeviceName)
     {
         var temporaryName = $"MWDA-Test-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
-        try
-        {
-            await client.SetDeviceNameAsync(temporaryName);
-            var readBack = await client.GetIdentityAsync();
-            Assert.Equal(temporaryName, readBack.DeviceName);
-        }
-        finally
-        {
-            await client.SetDeviceNameAsync(originalDeviceName);
-        }
+        await live.CharacterizeWriteEncodingAsync(
+            AdapterOperation.SetDeviceName,
+            candidate => TryCandidateAsync(
+                live,
+                AdapterOperation.SetDeviceName,
+                candidate,
+                client => client.SetDeviceNameAsync(temporaryName)),
+            fallback => RestoreIfNeededAsync(
+                live,
+                AdapterOperation.SetDeviceName,
+                fallback,
+                originalDeviceName,
+                async client => (await client.GetIdentityAsync()).DeviceName,
+                client => client.SetDeviceNameAsync(originalDeviceName)));
     }
 
     private static async Task CharacterizeOverscanAndRestoreAsync(
-        AdapterClient client,
+        LiveAdapterFixture live,
         OverscanSettings original)
     {
         var temporaryValue = original.Value < AdapterValidation.MaximumOverscanValue
@@ -46,32 +52,93 @@ public sealed class CoreSettingsLiveTests
             : original.Value - 1;
         var temporary = new OverscanSettings(original.IsAutoAdjust, temporaryValue);
 
-        try
-        {
-            await client.SetOverscanAsync(temporary);
-            var readBack = await client.GetOverscanAsync();
-            Assert.Equal(temporary, readBack);
-        }
-        finally
-        {
-            await client.SetOverscanAsync(original);
-        }
+        await live.CharacterizeWriteEncodingAsync(
+            AdapterOperation.SetOverscan,
+            candidate => TryCandidateAsync(
+                live,
+                AdapterOperation.SetOverscan,
+                candidate,
+                client => client.SetOverscanAsync(temporary)),
+            fallback => RestoreIfNeededAsync(
+                live,
+                AdapterOperation.SetOverscan,
+                fallback,
+                original,
+                client => client.GetOverscanAsync(),
+                client => client.SetOverscanAsync(original)));
     }
 
     private static async Task CharacterizePasswordProtectionAndRestoreAsync(
-        AdapterClient client,
+        LiveAdapterFixture live,
         bool originallyEnabled)
     {
         var temporaryValue = !originallyEnabled;
+        await live.CharacterizeWriteEncodingAsync(
+            AdapterOperation.SetPasswordProtection,
+            candidate => TryCandidateAsync(
+                live,
+                AdapterOperation.SetPasswordProtection,
+                candidate,
+                client => client.SetPasswordProtectionAsync(temporaryValue, password: null)),
+            fallback => RestoreIfNeededAsync(
+                live,
+                AdapterOperation.SetPasswordProtection,
+                fallback,
+                originallyEnabled,
+                async client => (await client.GetPasswordProtectionAsync()).Enabled,
+                client => client.SetPasswordProtectionAsync(originallyEnabled, password: null)));
+    }
+
+    private static async Task<bool> TryCandidateAsync(
+        LiveAdapterFixture live,
+        AdapterOperation operation,
+        ProtocolWriteEncoding candidate,
+        Func<AdapterClient, Task> write)
+    {
+        using var client = live.CreateCandidateClient(operation, candidate);
         try
         {
-            await client.SetPasswordProtectionAsync(temporaryValue, password: null);
-            var readBack = await client.GetPasswordProtectionAsync();
-            Assert.Equal(temporaryValue, readBack.Enabled);
+            await write(client);
+            return true;
         }
-        finally
+        catch (AdapterProtocolException)
         {
-            await client.SetPasswordProtectionAsync(originallyEnabled, password: null);
+            return false;
+        }
+    }
+
+    private static async Task RestoreIfNeededAsync<T>(
+        LiveAdapterFixture live,
+        AdapterOperation operation,
+        ProtocolWriteEncoding fallbackEncoding,
+        T original,
+        Func<AdapterClient, Task<T>> read,
+        Func<AdapterClient, Task> restore)
+    {
+        var current = await read(live.Client);
+        if (EqualityComparer<T>.Default.Equals(current, original))
+        {
+            return;
+        }
+
+        Exception? restorationFailure = null;
+        try
+        {
+            using var client = live.CreateRestorationClient(operation, fallbackEncoding);
+            await restore(client);
+        }
+        catch (AdapterProtocolException exception)
+        {
+            restorationFailure = exception;
+        }
+
+        var restored = await read(live.Client);
+        if (!EqualityComparer<T>.Default.Equals(restored, original))
+        {
+            var message = $"Failed to restore {operation} after a write-encoding candidate attempt.";
+            throw restorationFailure is null
+                ? new AdapterProtocolException(message)
+                : new AdapterProtocolException(message, restorationFailure);
         }
     }
 }
