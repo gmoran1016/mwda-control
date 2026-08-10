@@ -1,2 +1,7 @@
 .worktrees/
 .tools/
+.vs/
+**/bin/
+**/obj/
+TestResults/
+artifacts/
