@@ -41,9 +41,25 @@ public sealed class AdapterHttpTransport : IDisposable
             throw new ArgumentException("The adapter request URI must be absolute.", nameof(requestUri));
         }
 
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+        return await SendAsync(request, cancellationToken);
+    }
+
+    public async Task<AdapterHttpResponse> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.RequestUri is null || !request.RequestUri.IsAbsoluteUri)
+        {
+            throw new ArgumentException(
+                "The adapter request URI must be absolute.",
+                nameof(request));
+        }
+
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_requestTimeout);
-        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
 
         try
         {
@@ -61,16 +77,16 @@ public sealed class AdapterHttpTransport : IDisposable
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
             throw new AdapterProtocolException(
-                $"GET {requestUri.AbsoluteUri} timed out after {_requestTimeout.TotalMilliseconds:0} ms.",
+                $"{request.Method} {request.RequestUri.AbsoluteUri} timed out after {_requestTimeout.TotalMilliseconds:0} ms.",
                 exception);
         }
         catch (HttpRequestException exception)
         {
-            throw TransportFailure(requestUri, exception);
+            throw TransportFailure(request.Method, request.RequestUri, exception);
         }
         catch (IOException exception)
         {
-            throw TransportFailure(requestUri, exception);
+            throw TransportFailure(request.Method, request.RequestUri, exception);
         }
     }
 
@@ -99,6 +115,9 @@ public sealed class AdapterHttpTransport : IDisposable
         }
     }
 
-    private static AdapterProtocolException TransportFailure(Uri requestUri, Exception exception) =>
-        new($"GET {requestUri.AbsoluteUri} failed before a complete HTTP response was received.", exception);
+    private static AdapterProtocolException TransportFailure(
+        HttpMethod method,
+        Uri requestUri,
+        Exception exception) =>
+        new($"{method} {requestUri.AbsoluteUri} failed before a complete HTTP response was received.", exception);
 }
