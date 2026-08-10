@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -16,6 +18,16 @@ public enum ProtocolWriteEncoding
 public static class ProtocolRequestCatalog
 {
     private const string ControlPath = "/cgi-bin/msupload.sh";
+
+    public const int MaximumWallpaperBytes = 4_194_304;
+
+    private static readonly IReadOnlyDictionary<string, string> WallpaperContentTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".png"] = "image/png",
+        };
 
     private static readonly IReadOnlyList<ProtocolWriteEncoding> CandidateEncodings =
         Array.AsReadOnly(
@@ -42,6 +54,10 @@ public static class ProtocolRequestCatalog
             AdapterOperation.GetDeviceName => "GetDeviceName",
             AdapterOperation.GetOverscan => "GetOverscanSetting",
             AdapterOperation.GetPasswordProtection => "GetPasswordProtectState",
+            AdapterOperation.GetWallpaperInfo => "GetWallpaperId",
+            AdapterOperation.GetWiFiSettings => "GetWiFiSetting",
+            AdapterOperation.GetHdcpStatus => "GetHdcpStatus",
+            AdapterOperation.GetLanguage => "GetLanguage",
             _ => throw UnsupportedOperation(operation),
         };
 
@@ -82,6 +98,92 @@ public static class ProtocolRequestCatalog
             new[] { Field("PasswordProtect", enabled) },
             encoding);
 
+    public static HttpRequestMessage CreateSetPredefinedWallpaperRequest(
+        AdapterEndpoint endpoint,
+        string wallpaperId) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "SetPredefinedWallpaper",
+            new[] { Field("WallpaperID", wallpaperId) });
+
+    public static HttpRequestMessage CreateSetWiFiSettingsRequest(
+        AdapterEndpoint endpoint,
+        WifiSettings settings) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "SetConfigureWiFiAP",
+            new[]
+            {
+                Field("WiFiSsid", settings.Ssid),
+                Field("WiFiPwd", settings.Password ?? string.Empty),
+            });
+
+    public static HttpRequestMessage CreateForgetWiFiRequest(AdapterEndpoint endpoint) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "ForgetWiFi",
+            Array.Empty<KeyValuePair<string, object>>());
+
+    public static HttpRequestMessage CreateSetHdcpStatusRequest(
+        AdapterEndpoint endpoint,
+        bool enabled) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "SetHdcpStatus",
+            new[] { Field("HdcpStatus", enabled) });
+
+    public static HttpRequestMessage CreateSetLanguageRequest(
+        AdapterEndpoint endpoint,
+        string languageTag) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "SetLanguage",
+            new[] { Field("LanguageCode", languageTag) });
+
+    public static HttpRequestMessage CreateRestartRequest(AdapterEndpoint endpoint) =>
+        CreateOptionalJsonWriteRequest(
+            endpoint,
+            "Restart",
+            Array.Empty<KeyValuePair<string, object>>());
+
+    public static async Task<HttpRequestMessage> CreateUploadWallpaperRequestAsync(
+        AdapterEndpoint endpoint,
+        Stream image,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ValidateWallpaperFile(fileName, contentType);
+        if (!image.CanRead)
+        {
+            throw new ArgumentException("The wallpaper stream must be readable.", nameof(image));
+        }
+
+        if (image.CanSeek && image.Length - image.Position > MaximumWallpaperBytes)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(image),
+                "The wallpaper exceeds the four-mebibyte upload limit.");
+        }
+
+        var bytes = await ReadBoundedAsync(image, cancellationToken);
+        ValidateWallpaperSignature(bytes, contentType);
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+
+        var multipart = new MultipartFormDataContent();
+        multipart.Add(content, "wallpaper", fileName);
+
+        ValidateEndpoint(endpoint);
+        return new HttpRequestMessage(
+            HttpMethod.Post,
+            BuildUri(endpoint, $"{ControlPath}?Action=UploadWallpaper"))
+        {
+            Content = multipart,
+        };
+    }
+
     public static ProtocolWriteEncoding GetRecordedWriteEncoding(AdapterOperation operation) =>
         operation switch
         {
@@ -120,6 +222,12 @@ public static class ProtocolRequestCatalog
             fields,
             encoding ?? GetRecordedWriteEncoding(operation));
     }
+
+    private static HttpRequestMessage CreateOptionalJsonWriteRequest(
+        AdapterEndpoint endpoint,
+        string action,
+        IReadOnlyList<KeyValuePair<string, object>> fields) =>
+        CreateRequest(endpoint, action, fields, ProtocolWriteEncoding.Json);
 
     private static HttpRequestMessage CreateRequest(
         AdapterEndpoint endpoint,
@@ -180,6 +288,69 @@ public static class ProtocolRequestCatalog
         return JsonSerializer.Serialize(values, JsonOptions);
     }
 
+    private static async Task<byte[]> ReadBoundedAsync(
+        Stream image,
+        CancellationToken cancellationToken)
+    {
+        using var output = new MemoryStream();
+        var buffer = new byte[81_920];
+        while (true)
+        {
+            var remaining = MaximumWallpaperBytes - checked((int)output.Length);
+            var read = await image.ReadAsync(
+                buffer.AsMemory(0, Math.Min(buffer.Length, remaining + 1)),
+                cancellationToken);
+            if (read == 0)
+            {
+                return output.ToArray();
+            }
+
+            if (read > remaining)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(image),
+                    "The wallpaper exceeds the four-mebibyte upload limit.");
+            }
+
+            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+    }
+
+    private static void ValidateWallpaperFile(string fileName, string contentType)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            !string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The wallpaper file name must be a safe leaf name.", nameof(fileName));
+        }
+
+        var extension = Path.GetExtension(fileName);
+        if (!WallpaperContentTypes.TryGetValue(extension, out var expectedContentType))
+        {
+            throw new ArgumentException("The wallpaper extension is not allow-listed.", nameof(fileName));
+        }
+
+        if (!string.Equals(contentType, expectedContentType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "The wallpaper content type does not match its allow-listed extension.",
+                nameof(contentType));
+        }
+    }
+
+    private static void ValidateWallpaperSignature(byte[] bytes, string contentType)
+    {
+        var hasExpectedSignature = contentType.Equals("image/png", StringComparison.OrdinalIgnoreCase)
+            ? bytes.AsSpan().StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })
+            : bytes.AsSpan().StartsWith(new byte[] { 0xFF, 0xD8, 0xFF });
+        if (!hasExpectedSignature)
+        {
+            throw new ArgumentException(
+                "The wallpaper content does not match its allow-listed image type.",
+                nameof(bytes));
+        }
+    }
+
     private static string FormatValue(object value) => value switch
     {
         bool boolean => boolean ? "true" : "false",
@@ -209,5 +380,5 @@ public static class ProtocolRequestCatalog
     private static KeyValuePair<string, object> Field(string name, object value) => new(name, value);
 
     private static ArgumentOutOfRangeException UnsupportedOperation(AdapterOperation operation) =>
-        new(nameof(operation), operation, "The operation is not a characterized core-settings operation.");
+        new(nameof(operation), operation, "The operation is not a characterized adapter operation.");
 }

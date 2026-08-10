@@ -1,6 +1,6 @@
 namespace Mwda.Control.Protocol;
 
-public sealed class AdapterProtocolException : Exception
+public class AdapterProtocolException : Exception
 {
     public AdapterProtocolException(string message)
         : base(message)
