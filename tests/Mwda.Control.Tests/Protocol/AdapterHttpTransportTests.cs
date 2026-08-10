@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Text;
 using Mwda.Control.Protocol;
@@ -54,7 +55,7 @@ public sealed class AdapterHttpTransportTests
             });
         using var transport = new AdapterHttpTransport(handler, TimeSpan.FromMilliseconds(20));
 
-        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+        var exception = await Assert.ThrowsAsync<AdapterTransportException>(
             () => transport.GetAsync(endpoint));
 
         Assert.Contains("GET", exception.Message);
@@ -87,12 +88,28 @@ public sealed class AdapterHttpTransportTests
             _ => throw new HttpRequestException("Connection refused."));
         using var transport = new AdapterHttpTransport(handler, TimeSpan.FromSeconds(2));
 
-        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+        var exception = await Assert.ThrowsAsync<AdapterTransportException>(
             () => transport.GetAsync(endpoint));
 
         Assert.Contains("GET", exception.Message);
         Assert.Contains(endpoint.AbsoluteUri, exception.Message);
         Assert.IsType<HttpRequestException>(exception.InnerException);
+    }
+
+    [Fact]
+    public async Task IoFailureIsClassifiedAsATransportFailure()
+    {
+        var endpoint = new Uri("http://192.168.137.247/incomplete");
+        using var handler = new StubHttpMessageHandler(
+            _ => throw new IOException("Response ended early."));
+        using var transport = new AdapterHttpTransport(handler, TimeSpan.FromSeconds(2));
+
+        var exception = await Assert.ThrowsAsync<AdapterTransportException>(
+            () => transport.GetAsync(endpoint));
+
+        Assert.Contains("GET", exception.Message);
+        Assert.Contains(endpoint.AbsoluteUri, exception.Message);
+        Assert.IsType<IOException>(exception.InnerException);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

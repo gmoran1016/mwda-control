@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net.Http;
 using Mwda.Control.Mvvm;
 using Mwda.Control.Protocol;
 using Mwda.Control.Session;
@@ -155,7 +154,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            HandleFailure(exception);
+            HandleFailure(exception, cancellation);
         }
         finally
         {
@@ -209,7 +208,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         catch (Exception exception)
         {
             IsDirty = true;
-            HandleFailure(exception);
+            HandleFailure(exception, cancellation);
         }
         finally
         {
@@ -244,7 +243,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            HandleFailure(exception);
+            HandleFailure(exception, cancellation);
         }
         finally
         {
@@ -290,13 +289,23 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         cancellation.Dispose();
     }
 
-    private void HandleFailure(Exception exception)
+    private void HandleFailure(Exception exception, CancellationTokenSource cancellation)
     {
-        if (exception is OperationCanceledException or HttpRequestException or TimeoutException)
+        if (exception is AdapterTransportException)
         {
             _connectionLost?.Invoke(exception);
             ResultBanner =
                 "Adapter not reachable; reconnect through Windows wireless display settings and try again.";
+            return;
+        }
+
+        if (exception is OperationCanceledException && cancellation.IsCancellationRequested)
+        {
+            if (ReferenceEquals(_operationCancellation, cancellation))
+            {
+                ResultBanner = "Operation cancelled.";
+            }
+
             return;
         }
 

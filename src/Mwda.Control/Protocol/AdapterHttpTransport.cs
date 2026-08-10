@@ -76,7 +76,7 @@ public sealed class AdapterHttpTransport : IDisposable
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new AdapterProtocolException(
+            throw new AdapterTransportException(
                 $"{request.Method} {request.RequestUri.AbsoluteUri} timed out after {_requestTimeout.TotalMilliseconds:0} ms.",
                 exception);
         }
@@ -115,7 +115,7 @@ public sealed class AdapterHttpTransport : IDisposable
         }
     }
 
-    private static AdapterProtocolException TransportFailure(
+    private static AdapterTransportException TransportFailure(
         HttpMethod method,
         Uri requestUri,
         Exception exception) =>

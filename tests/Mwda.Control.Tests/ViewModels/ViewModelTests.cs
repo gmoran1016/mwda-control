@@ -151,7 +151,7 @@ public sealed class ViewModelTests
     }
 
     [Fact]
-    public async Task TimedOutSavePublishesDisconnectedStateAndPreservesTheEdit()
+    public async Task PageSaveTimeoutCancelsLocallyAndPreservesConnectionAndEdit()
     {
         var client = new RecordingClient
         {
@@ -166,10 +166,73 @@ public sealed class ViewModelTests
 
         await shell.Adapter.SaveAsync();
 
+        Assert.True(shell.Connection.IsConnected);
+        Assert.True(shell.Adapter.IsDirty);
+        Assert.Equal("Room_2+(West)", shell.Adapter.DeviceName);
+        Assert.Contains("cancelled", shell.Adapter.ResultBanner, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RealClientTransportFailureDisconnectsShellAndPreservesTheEdit()
+    {
+        using var handler = new StubHttpMessageHandler((request, _) =>
+        {
+            var action = GetAction(request);
+            return action switch
+            {
+                "GetPasswordProtectState" => Task.FromResult(JsonResponse("""{"PasswordProtect":false}""")),
+                "GetOverscanSetting" => Task.FromResult(
+                    JsonResponse("""{"IsAutoAdjust":false,"OverscanSettingValue":0}""")),
+                "SetDeviceName" => throw new HttpRequestException("Connection refused."),
+                _ => throw new InvalidOperationException($"Unexpected action: {action}"),
+            };
+        });
+        using var client = new AdapterClient(
+            new AdapterEndpoint(new Uri("http://192.168.137.247/")),
+            handler,
+            TimeSpan.FromSeconds(2));
+        var shell = CreateShell(
+            CreateSession(client, new RecordingAdvancedClient(), CoreCapabilities()));
+        await shell.StartupRefresh;
+        shell.Adapter.DeviceName = "Room_2+(West)";
+
+        await shell.Adapter.SaveAsync();
+
         Assert.False(shell.Connection.IsConnected);
         Assert.True(shell.Adapter.IsDirty);
         Assert.Equal("Room_2+(West)", shell.Adapter.DeviceName);
         Assert.Contains("not reachable", shell.Adapter.ResultBanner, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SupersededNetworkSaveDoesNotDisconnectShellOrClearDirtyEdit()
+    {
+        var saveStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var advancedClient = new RecordingAdvancedClient
+        {
+            SetWiFiSettings = async (_, cancellationToken) =>
+            {
+                saveStarted.SetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            },
+        };
+        var shell = CreateShell(
+            CreateSession(new RecordingClient(), advancedClient, CreateCapabilities(includeWifi: true)));
+        await shell.StartupRefresh;
+        shell.Network.Ssid = "TrainingNet";
+
+        var save = shell.Network.SaveAsync();
+        await saveStarted.Task;
+        var forget = shell.Network.ForgetAsync();
+        await Task.WhenAll(save, forget);
+
+        Assert.True(shell.Connection.IsConnected);
+        Assert.True(shell.Network.IsVisible);
+        Assert.True(shell.Network.IsDirty);
+        Assert.DoesNotContain(
+            "not reachable",
+            shell.Network.ResultBanner ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -369,6 +432,8 @@ public sealed class ViewModelTests
 
     private sealed class RecordingAdvancedClient : IAdvancedWirelessDisplayAdapterClient
     {
+        public Func<WifiSettings, CancellationToken, Task>? SetWiFiSettings { get; init; }
+
         public Task<WallpaperInfo> GetWallpaperInfoAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<WallpaperInfo>(new("1", ["1", "2"], true));
 
@@ -385,9 +450,15 @@ public sealed class ViewModelTests
         public Task<WifiSettings> GetWiFiSettingsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new WifiSettings("GymNet", true));
 
-        public Task SetWiFiSettingsAsync(
+        public async Task SetWiFiSettingsAsync(
             WifiSettings settings,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            if (SetWiFiSettings is not null)
+            {
+                await SetWiFiSettings(settings, cancellationToken);
+            }
+        }
 
         public Task ForgetWiFiAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
