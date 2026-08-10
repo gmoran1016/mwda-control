@@ -119,6 +119,28 @@ public sealed class CapabilityDetectorTests
         Assert.Same(advanced, session.AdvancedClient);
     }
 
+    [Fact]
+    public async Task SessionFactoryDisposesBasicClientWhenAdvancedClientConstructionFails()
+    {
+        var basic = new DisposeTrackingBasicClient(AdapterGeneration.Generation3);
+        var constructionFailure = new InvalidOperationException("Advanced client construction failed.");
+        var factory = new AdapterSessionFactory(
+            _ => basic,
+            _ => throw constructionFailure);
+        var discovered = new DiscoveredAdapter(
+            IPAddress.Parse("192.168.137.247"),
+            "Wi-Fi Direct",
+            "WeightRoom-AD",
+            TimeSpan.FromMilliseconds(12),
+            false);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => factory.CreateAsync(discovered, CancellationToken.None));
+
+        Assert.Same(constructionFailure, exception);
+        Assert.True(basic.IsDisposed);
+    }
+
     private static string GetAction(HttpRequestMessage request)
     {
         var query = request.RequestUri!.Query.TrimStart('?').Split('&');
@@ -165,6 +187,46 @@ public sealed class CapabilityDetectorTests
 
         public Task<CapabilityProfile> DetectCapabilitiesAsync(
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class DisposeTrackingBasicClient(
+        AdapterGeneration generation) : IWirelessDisplayAdapterClient, IDisposable
+    {
+        private readonly SuccessfulBasicClient _inner = new(generation);
+
+        public bool IsDisposed { get; private set; }
+
+        public Task<AdapterIdentity> GetIdentityAsync(CancellationToken cancellationToken = default) =>
+            _inner.GetIdentityAsync(cancellationToken);
+
+        public Task<OverscanSettings> GetOverscanAsync(CancellationToken cancellationToken = default) =>
+            _inner.GetOverscanAsync(cancellationToken);
+
+        public Task<PasswordProtectionSettings> GetPasswordProtectionAsync(
+            CancellationToken cancellationToken = default) =>
+            _inner.GetPasswordProtectionAsync(cancellationToken);
+
+        public Task SetOverscanAsync(
+            OverscanSettings settings,
+            CancellationToken cancellationToken = default) =>
+            _inner.SetOverscanAsync(settings, cancellationToken);
+
+        public Task SetPasswordProtectionAsync(
+            bool enabled,
+            string? password,
+            CancellationToken cancellationToken = default) =>
+            _inner.SetPasswordProtectionAsync(enabled, password, cancellationToken);
+
+        public Task SetDeviceNameAsync(
+            string deviceName,
+            CancellationToken cancellationToken = default) =>
+            _inner.SetDeviceNameAsync(deviceName, cancellationToken);
+
+        public Task<CapabilityProfile> DetectCapabilitiesAsync(
+            CancellationToken cancellationToken = default) =>
+            _inner.DetectCapabilitiesAsync(cancellationToken);
+
+        public void Dispose() => IsDisposed = true;
     }
 
     private sealed class StubHttpMessageHandler(

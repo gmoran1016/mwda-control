@@ -31,10 +31,12 @@ public sealed class AdapterSessionFactory : IAdapterSessionFactory
     {
         ArgumentNullException.ThrowIfNull(discoveredAdapter);
 
-        var client = _createClient(discoveredAdapter.Endpoint);
-        var advancedClient = _createAdvancedClient(discoveredAdapter.Endpoint);
+        IWirelessDisplayAdapterClient? client = null;
+        IAdvancedWirelessDisplayAdapterClient? advancedClient = null;
         try
         {
+            client = _createClient(discoveredAdapter.Endpoint);
+            advancedClient = _createAdvancedClient(discoveredAdapter.Endpoint);
             var identity = await client.GetIdentityAsync(cancellationToken);
             var capabilities = await CapabilityDetector.DetectAsync(
                 client,
