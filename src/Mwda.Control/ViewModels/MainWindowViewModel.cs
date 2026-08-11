@@ -5,10 +5,11 @@ using Mwda.Control.Session;
 
 namespace Mwda.Control.ViewModels;
 
-public sealed class MainWindowViewModel : ObservableObject
+public sealed class MainWindowViewModel : ObservableObject, IDisposable
 {
     private NavigationItem? _selectedPage;
     private ObservableObject? _selectedPageViewModel;
+    private int _disposed;
 
     public MainWindowViewModel(
         IAdapterDiscovery discovery,
@@ -73,6 +74,17 @@ public sealed class MainWindowViewModel : ObservableObject
     public Task StartupRefresh { get; }
 
     public bool IsFirmwareVisible => false;
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        DisconnectPages();
+        Connection.Dispose();
+    }
 
     private async Task LoadSessionAsync(AdapterSession session, CancellationToken cancellationToken)
     {

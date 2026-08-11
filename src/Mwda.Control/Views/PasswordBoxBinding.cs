@@ -5,6 +5,14 @@ namespace Mwda.Control.Views;
 
 public static class PasswordBoxBinding
 {
+    static PasswordBoxBinding()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(PasswordBox),
+            PasswordBox.PasswordChangedEvent,
+            new RoutedEventHandler(PasswordBoxOnPasswordChanged));
+    }
+
     public static readonly DependencyProperty PasswordProperty =
         DependencyProperty.RegisterAttached(
             "Password",
@@ -41,28 +49,39 @@ public static class PasswordBoxBinding
             return;
         }
 
-        passwordBox.PasswordChanged -= PasswordBoxOnPasswordChanged;
-        passwordBox.PasswordChanged += PasswordBoxOnPasswordChanged;
-
         if (GetIsUpdating(passwordBox))
         {
             return;
         }
 
         SetIsUpdating(passwordBox, true);
-        passwordBox.Password = e.NewValue as string ?? string.Empty;
-        SetIsUpdating(passwordBox, false);
+        try
+        {
+            passwordBox.Password = e.NewValue as string ?? string.Empty;
+        }
+        finally
+        {
+            SetIsUpdating(passwordBox, false);
+        }
     }
 
     private static void PasswordBoxOnPasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (sender is not PasswordBox passwordBox || GetIsUpdating(passwordBox))
+        if (sender is not PasswordBox passwordBox ||
+            passwordBox.ReadLocalValue(PasswordProperty) == DependencyProperty.UnsetValue ||
+            GetIsUpdating(passwordBox))
         {
             return;
         }
 
         SetIsUpdating(passwordBox, true);
-        SetPassword(passwordBox, string.IsNullOrEmpty(passwordBox.Password) ? null : passwordBox.Password);
-        SetIsUpdating(passwordBox, false);
+        try
+        {
+            SetPassword(passwordBox, string.IsNullOrEmpty(passwordBox.Password) ? null : passwordBox.Password);
+        }
+        finally
+        {
+            SetIsUpdating(passwordBox, false);
+        }
     }
 }

@@ -35,8 +35,15 @@ public sealed class AdapterSession : IDisposable
 
     public IAdvancedWirelessDisplayAdapterClient AdvancedClient { get; }
 
+    private int _disposed;
+
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         if (Client is IDisposable clientDisposable)
         {
             clientDisposable.Dispose();

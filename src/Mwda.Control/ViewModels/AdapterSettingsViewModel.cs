@@ -16,7 +16,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
     private string _savedDeviceName = string.Empty;
     private bool _passwordProtectionEnabled;
     private bool _savedPasswordProtectionEnabled;
-    private string? _password;
     private string? _selectedLanguageTag;
     private string? _savedLanguageTag;
     private IReadOnlyList<string> _availableLanguageTags = [];
@@ -55,18 +54,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _passwordProtectionEnabled, value))
-            {
-                UpdateDirtyState();
-            }
-        }
-    }
-
-    public string? Password
-    {
-        get => _password;
-        set
-        {
-            if (SetProperty(ref _password, value))
             {
                 UpdateDirtyState();
             }
@@ -190,7 +177,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
 
         var requestedName = DeviceName;
         var requestedProtection = PasswordProtectionEnabled;
-        var requestedPassword = Password;
         var requestedLanguage = SelectedLanguageTag;
         var cancellation = BeginOperation();
         try
@@ -200,7 +186,7 @@ public sealed class AdapterSettingsViewModel : ObservableObject
                 await session.Client.SetDeviceNameAsync(requestedName, cancellation.Token);
             }
 
-            if (requestedProtection != _savedPasswordProtectionEnabled || requestedPassword is not null)
+            if (requestedProtection != _savedPasswordProtectionEnabled)
             {
                 if (!IsPasswordProtectionSupported)
                 {
@@ -209,7 +195,7 @@ public sealed class AdapterSettingsViewModel : ObservableObject
 
                 await session.Client.SetPasswordProtectionAsync(
                     requestedProtection,
-                    requestedPassword,
+                    password: null,
                     cancellation.Token);
             }
 
@@ -226,7 +212,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
             _savedDeviceName = requestedName;
             _savedPasswordProtectionEnabled = requestedProtection;
             _savedLanguageTag = requestedLanguage;
-            SetProperty(ref _password, null, nameof(Password));
             IsDirty = false;
             ResultBanner = "Applied.";
         }
@@ -254,7 +239,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
         SetProperty(ref _deviceName, deviceName, nameof(DeviceName));
         SetProperty(ref _passwordProtectionEnabled, protectionEnabled, nameof(PasswordProtectionEnabled));
         SetProperty(ref _selectedLanguageTag, languageTag, nameof(SelectedLanguageTag));
-        SetProperty(ref _password, null, nameof(Password));
         IsDirty = false;
     }
 
@@ -263,7 +247,6 @@ public sealed class AdapterSettingsViewModel : ObservableObject
         IsDirty =
             !string.Equals(DeviceName, _savedDeviceName, StringComparison.Ordinal) ||
             PasswordProtectionEnabled != _savedPasswordProtectionEnabled ||
-            Password is not null ||
             !string.Equals(SelectedLanguageTag, _savedLanguageTag, StringComparison.OrdinalIgnoreCase);
     }
 

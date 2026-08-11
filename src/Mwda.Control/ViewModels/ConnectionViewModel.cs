@@ -4,7 +4,7 @@ using Mwda.Control.Session;
 
 namespace Mwda.Control.ViewModels;
 
-public sealed class ConnectionViewModel : ObservableObject
+public sealed class ConnectionViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan DefaultOperationTimeout = TimeSpan.FromSeconds(10);
 
@@ -16,6 +16,7 @@ public sealed class ConnectionViewModel : ObservableObject
     private CancellationTokenSource? _refreshCancellation;
     private AdapterSession? _session;
     private DiscoveredAdapter? _selectedAdapter;
+    private int _disposed;
     private bool _isConnected;
     private string _connectionState = "Disconnected";
     private string? _resultBanner;
@@ -63,8 +64,28 @@ public sealed class ConnectionViewModel : ObservableObject
         private set => SetProperty(ref _resultBanner, value);
     }
 
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _refreshCancellation, null)?.Cancel();
+        var session = Interlocked.Exchange(ref _session, null);
+        IsConnected = false;
+        ConnectionState = "Disconnected";
+        SelectedAdapter = null;
+        session?.Dispose();
+    }
+
     public async Task RefreshAsync()
     {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
         var cancellation = new CancellationTokenSource(_operationTimeout);
         var previousCancellation = Interlocked.Exchange(ref _refreshCancellation, cancellation);
         previousCancellation?.Cancel();
@@ -128,6 +149,11 @@ public sealed class ConnectionViewModel : ObservableObject
     public void HandleConnectionLoss(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
         _refreshCancellation?.Cancel();
         PublishDisconnected($"{CreateNotReachableMessage()} {exception.Message}");
     }

@@ -192,6 +192,76 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public async Task PairingSettingsExposeOnlyTheCharacterizedBooleanOperation()
+    {
+        Assert.Null(typeof(AdapterSettingsViewModel).GetProperty("Password"));
+
+        var client = new RecordingClient();
+        var viewModel = new AdapterSettingsViewModel();
+        await viewModel.LoadAsync(CreateSession(client, new RecordingAdvancedClient(), CoreCapabilities()));
+        viewModel.PasswordProtectionEnabled = true;
+
+        await viewModel.SaveAsync();
+
+        Assert.Equal([(true, (string?)null)], client.PasswordProtectionWrites);
+        var adapterView = ReadSource("src/Mwda.Control/Views/AdapterView.xaml");
+        Assert.DoesNotContain("<PasswordBox", adapterView);
+        Assert.DoesNotContain("Pairing password (optional)", adapterView);
+        Assert.Contains("Pairing password changes are not supported by the characterized adapter protocol.", adapterView);
+    }
+
+    [Fact]
+    public async Task ShellDisposesItsActiveSessionIdempotently()
+    {
+        var client = new RecordingClient();
+        var advancedClient = new RecordingAdvancedClient();
+        var shell = CreateShell(CreateSession(client, advancedClient, CoreCapabilities()));
+        await shell.StartupRefresh;
+
+        var dispose = typeof(MainWindowViewModel).GetMethod("Dispose", Type.EmptyTypes);
+        Assert.NotNull(dispose);
+        dispose!.Invoke(shell, null);
+        dispose.Invoke(shell, null);
+
+        Assert.Equal(1, client.DisposeCount);
+        Assert.Equal(1, advancedClient.DisposeCount);
+    }
+
+    [Fact]
+    public async Task ShellDisposeCancelsInFlightDiscovery()
+    {
+        var discoveryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var discovery = new StubDiscovery(async cancellationToken =>
+        {
+            discoveryStarted.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return [];
+        });
+        var shell = new MainWindowViewModel(
+            discovery,
+            new StubSessionFactory((_, _) => throw new InvalidOperationException("No session should be created.")));
+        await discoveryStarted.Task;
+
+        var dispose = typeof(MainWindowViewModel).GetMethod("Dispose", Type.EmptyTypes);
+        Assert.NotNull(dispose);
+        dispose!.Invoke(shell, null);
+
+        await shell.StartupRefresh.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.False(shell.Connection.RefreshCommand.IsExecuting);
+    }
+
+    [Fact]
+    public void AppExitDisposesShellBeforeDiscovery()
+    {
+        var app = ReadSource("src/Mwda.Control/App.xaml.cs");
+        var shellDisposeIndex = app.IndexOf("_viewModel?.Dispose()", StringComparison.Ordinal);
+        var discoveryDisposeIndex = app.IndexOf("_discovery?.Dispose()", StringComparison.Ordinal);
+
+        Assert.True(shellDisposeIndex >= 0);
+        Assert.True(discoveryDisposeIndex > shellDisposeIndex);
+    }
+
+    [Fact]
     public void ConnectionSettingsExposeWindowsWirelessDisplayDiscoveryUri()
     {
         var viewModel = new ConnectionSettingsViewModel();
@@ -530,11 +600,15 @@ public sealed class ViewModelTests
             create(discoveredAdapter, cancellationToken);
     }
 
-    private sealed class RecordingClient : IWirelessDisplayAdapterClient
+    private sealed class RecordingClient : IWirelessDisplayAdapterClient, IDisposable
     {
         public Func<string, CancellationToken, Task>? SetDeviceName { get; init; }
 
         public List<string> DeviceNameWrites { get; } = [];
+
+        public List<(bool Enabled, string? Password)> PasswordProtectionWrites { get; } = [];
+
+        public int DisposeCount { get; private set; }
 
         public Task<AdapterIdentity> GetIdentityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AdapterIdentity("WeightRoom-AD", AdapterGeneration.Generation3));
@@ -553,7 +627,11 @@ public sealed class ViewModelTests
         public Task SetPasswordProtectionAsync(
             bool enabled,
             string? password,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            PasswordProtectionWrites.Add((enabled, password));
+            return Task.CompletedTask;
+        }
 
         public async Task SetDeviceNameAsync(
             string deviceName,
@@ -569,11 +647,15 @@ public sealed class ViewModelTests
         public Task<CapabilityProfile> DetectCapabilitiesAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(CoreCapabilities());
+
+        public void Dispose() => DisposeCount++;
     }
 
-    private sealed class RecordingAdvancedClient : IAdvancedWirelessDisplayAdapterClient
+    private sealed class RecordingAdvancedClient : IAdvancedWirelessDisplayAdapterClient, IDisposable
     {
         public Func<WifiSettings, CancellationToken, Task>? SetWiFiSettings { get; init; }
+
+        public int DisposeCount { get; private set; }
 
         public Task<WallpaperInfo> GetWallpaperInfoAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<WallpaperInfo>(new("1", ["1", "2"], true));
@@ -618,6 +700,8 @@ public sealed class ViewModelTests
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task RestartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void Dispose() => DisposeCount++;
     }
 
     private sealed class StubHttpMessageHandler(

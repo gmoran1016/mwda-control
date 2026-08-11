@@ -1,9 +1,8 @@
 <UserControl x:Class="Mwda.Control.Views.AdapterView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:validation="clr-namespace:Mwda.Control.Views"
-             xmlns:behavior="clr-namespace:Mwda.Control.Views"
-             AutomationProperties.Name="Adapter settings view">
+              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:validation="clr-namespace:Mwda.Control.Views"
+              AutomationProperties.Name="Adapter settings view">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="720">
             <TextBlock Text="Adapter"
@@ -53,22 +52,9 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <TextBlock Text="Pairing password (optional)" Style="{StaticResource FieldLabelStyle}" />
-                    <PasswordBox IsEnabled="{Binding IsPasswordProtectionSupported}"
-                                 AutomationProperties.Name="Pairing password field">
-                        <behavior:PasswordBoxBinding.Password>
-                            <Binding Path="Password"
-                                     Mode="TwoWay"
-                                     UpdateSourceTrigger="PropertyChanged"
-                                     ValidatesOnExceptions="True">
-                                <Binding.ValidationRules>
-                                    <validation:PasswordValidationRule />
-                                </Binding.ValidationRules>
-                            </Binding>
-                        </behavior:PasswordBoxBinding.Password>
-                    </PasswordBox>
-                    <TextBlock Text="Leave blank when you are not changing the pairing password."
-                               Style="{StaticResource HintTextStyle}" />
+                    <TextBlock Text="Pairing password changes are not supported by the characterized adapter protocol. This control only toggles pairing protection."
+                               Style="{StaticResource HintTextStyle}"
+                               AutomationProperties.Name="Pairing password unsupported explanation" />
 
                     <TextBlock Text="Language" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding AvailableLanguageTags}"
