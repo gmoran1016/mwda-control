@@ -14,12 +14,20 @@ public sealed class CoreSettingsLiveTests
         var originalIdentity = await live.Client.GetIdentityAsync();
         var originalOverscan = await live.Client.GetOverscanAsync();
         var originalProtection = await live.Client.GetPasswordProtectionAsync();
+        Assert.Equal("WeightRoom-AD", originalIdentity.DeviceName);
 
         await CharacterizeDeviceNameAndRestoreAsync(live, originalIdentity.DeviceName);
         await CharacterizeOverscanAndRestoreAsync(live, originalOverscan);
         await CharacterizePasswordProtectionAndRestoreAsync(live, originalProtection.Enabled);
 
         Assert.Equal(3, live.AcceptedWriteEncodings.Count);
+
+        var finalIdentity = await live.Client.GetIdentityAsync();
+        var finalOverscan = await live.Client.GetOverscanAsync();
+        var finalProtection = await live.Client.GetPasswordProtectionAsync();
+        Assert.Equal(originalIdentity.DeviceName, finalIdentity.DeviceName);
+        Assert.Equal(originalOverscan, finalOverscan);
+        Assert.Equal(originalProtection, finalProtection);
     }
 
     private static async Task CharacterizeDeviceNameAndRestoreAsync(
