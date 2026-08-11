@@ -64,6 +64,13 @@ public static class ProtocolRequestCatalog
         return CreateRequest(endpoint, action, Array.Empty<KeyValuePair<string, object>>(), encoding: null);
     }
 
+    public static HttpRequestMessage CreateLegacyWallpaperReadRequest(AdapterEndpoint endpoint) =>
+        CreateRequest(
+            endpoint,
+            "GetWallpaperID",
+            Array.Empty<KeyValuePair<string, object>>(),
+            encoding: null);
+
     public static HttpRequestMessage CreateSetDeviceNameRequest(
         AdapterEndpoint endpoint,
         string deviceName,
@@ -100,10 +107,13 @@ public static class ProtocolRequestCatalog
 
     public static HttpRequestMessage CreateSetPredefinedWallpaperRequest(
         AdapterEndpoint endpoint,
-        string wallpaperId) =>
+        string wallpaperId,
+        WallpaperProtocolVariant protocolVariant = WallpaperProtocolVariant.Modern) =>
         CreateOptionalJsonWriteRequest(
             endpoint,
-            "SetPredefinedWallpaper",
+            protocolVariant == WallpaperProtocolVariant.LegacyGeneration2
+                ? "SetDisplayWallpaper"
+                : "SetPredefinedWallpaper",
             new[] { Field("WallpaperID", wallpaperId) });
 
     public static HttpRequestMessage CreateSetWiFiSettingsRequest(

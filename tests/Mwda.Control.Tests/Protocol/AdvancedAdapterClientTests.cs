@@ -15,6 +15,11 @@ public sealed class AdvancedAdapterClientTests
     {
         using var handler = new StubHttpMessageHandler(request =>
         {
+            if (request.RequestUri!.Query.Contains("GetWallpaperID", StringComparison.Ordinal))
+            {
+                return TextResponse(HttpStatusCode.NotFound, "missing");
+            }
+
             AssertRequest(request, HttpMethod.Get, "GetWallpaperId", contentType: null);
             return JsonResponse(
                 """{"WallpaperID":"3","AvailableWallpaperIDs":["1","2","3","4"],"SupportsCustomWallpaper":true}""");
@@ -26,6 +31,29 @@ public sealed class AdvancedAdapterClientTests
         Assert.Equal("3", result.CurrentWallpaperId);
         Assert.Equal(new[] { "1", "2", "3", "4" }, result.AvailableWallpaperIds);
         Assert.True(result.SupportsCustomWallpaper);
+    }
+
+    [Fact]
+    public async Task LegacyFourSquareWallpaperResponseEnablesBuiltInWallpaperSupport()
+    {
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.Query.Contains("GetWallpaperID", StringComparison.Ordinal))
+            {
+                AssertRequest(request, HttpMethod.Get, "GetWallpaperID", contentType: null);
+                return JsonResponse("{\"WallpaperID\":0}");
+            }
+
+            AssertRequest(request, HttpMethod.Get, "GetWallpaperId", contentType: null);
+            return TextResponse(HttpStatusCode.NotFound, "missing");
+        });
+        using var client = CreateClient(handler);
+
+        var result = await client.GetWallpaperInfoAsync();
+
+        Assert.Equal("0", result.CurrentWallpaperId);
+        Assert.Equal(new[] { "0", "1", "2", "3", "4" }, result.AvailableWallpaperIds);
+        Assert.False(result.SupportsCustomWallpaper);
     }
 
     [Fact]
@@ -87,6 +115,12 @@ public sealed class AdvancedAdapterClientTests
                 return JsonResponse("{}");
             }
 
+            if (requestNumber == 2)
+            {
+                AssertRequest(request, HttpMethod.Get, "GetWallpaperID", contentType: null);
+                return TextResponse(HttpStatusCode.NotFound, "missing");
+            }
+
             AssertRequest(request, HttpMethod.Get, "GetWallpaperId", contentType: null);
             return JsonResponse(
                 """{"WallpaperID":"2","AvailableWallpaperIDs":["1","2","3","4"],"SupportsCustomWallpaper":true}""");
@@ -95,7 +129,35 @@ public sealed class AdvancedAdapterClientTests
 
         await client.SetPredefinedWallpaperAsync("2");
 
-        Assert.Equal(2, requestNumber);
+        Assert.Equal(3, requestNumber);
+    }
+
+    [Fact]
+    public async Task LegacyPredefinedWallpaperWriteUsesDisplayWallpaperAction()
+    {
+        var requestNumber = 0;
+        using var handler = new StubHttpMessageHandler(async request =>
+        {
+            requestNumber++;
+            if (requestNumber is 1 or 3)
+            {
+                AssertRequest(request, HttpMethod.Get, "GetWallpaperID", contentType: null);
+                return JsonResponse(
+                    requestNumber == 1
+                        ? "{\"WallpaperID\":0}"
+                        : "{\"WallpaperID\":2}");
+            }
+
+            AssertRequest(request, HttpMethod.Post, "SetDisplayWallpaper", "application/json");
+            Assert.Equal("{\"WallpaperID\":\"2\"}", await request.Content!.ReadAsStringAsync());
+            return JsonResponse("{}");
+        });
+        using var client = CreateClient(handler);
+
+        await client.GetWallpaperInfoAsync();
+        await client.SetPredefinedWallpaperAsync("2");
+
+        Assert.Equal(3, requestNumber);
     }
 
     [Fact]

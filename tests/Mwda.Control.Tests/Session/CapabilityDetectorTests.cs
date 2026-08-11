@@ -19,6 +19,7 @@ public sealed class CapabilityDetectorTests
             var action = GetAction(request);
             return action switch
             {
+                "GetWallpaperID" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetWallpaperId" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetWiFiSetting" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetHdcpStatus" => TextResponse(HttpStatusCode.NotImplemented, "missing"),
@@ -49,6 +50,42 @@ public sealed class CapabilityDetectorTests
     }
 
     [Fact]
+    public async Task LegacyFourSquareAdapterIsReportedAsGeneration2WithWallpaperSupport()
+    {
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            var action = GetAction(request);
+            return action switch
+            {
+                "GetWallpaperID" => JsonResponse("{\"WallpaperID\":0}"),
+                "GetWallpaperId" => TextResponse(HttpStatusCode.NotFound, "missing"),
+                "GetWiFiSetting" => TextResponse(HttpStatusCode.NotFound, "missing"),
+                "GetHdcpStatus" => TextResponse(HttpStatusCode.NotFound, "missing"),
+                "GetLanguage" => TextResponse(HttpStatusCode.NotFound, "missing"),
+                _ => throw new InvalidOperationException($"Unexpected action: {action}"),
+            };
+        });
+        var basic = new SuccessfulBasicClient(AdapterGeneration.Unknown);
+        using var advanced = new AdvancedAdapterClient(Endpoint, handler, TimeSpan.FromSeconds(2));
+        var factory = new AdapterSessionFactory(_ => basic, _ => advanced);
+        var discovered = new DiscoveredAdapter(
+            IPAddress.Parse("192.168.137.247"),
+            "Wi-Fi Direct",
+            "Griffin-Home",
+            TimeSpan.FromMilliseconds(12),
+            false);
+
+        using var session = await factory.CreateAsync(discovered, CancellationToken.None);
+
+        Assert.Equal(AdapterGeneration.Generation2, session.CapabilityProfile.Generation);
+        Assert.Equal(
+            "Microsoft Wireless Display Adapter (with Microsoft 4 Square logo)",
+            session.AdapterIdentity.Model);
+        Assert.True(session.CapabilityProfile.Supports(AdapterOperation.GetWallpaperInfo));
+        Assert.True(session.CapabilityProfile.Supports(AdapterOperation.SetWallpaper));
+    }
+
+    [Fact]
     public async Task ValidOptionalReadSchemasEnableTheirReadAndWriteFamilies()
     {
         using var handler = new StubHttpMessageHandler(request =>
@@ -56,6 +93,7 @@ public sealed class CapabilityDetectorTests
             var action = GetAction(request);
             return action switch
             {
+                "GetWallpaperID" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetWallpaperId" => JsonResponse(
                     """{"WallpaperID":"4","AvailableWallpaperIDs":["1","2","3","4"],"SupportsCustomWallpaper":true}"""),
                 "GetWiFiSetting" => JsonResponse(
@@ -93,6 +131,7 @@ public sealed class CapabilityDetectorTests
             var action = GetAction(request);
             return action switch
             {
+                "GetWallpaperID" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetWallpaperId" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetWiFiSetting" => TextResponse(HttpStatusCode.NotFound, "missing"),
                 "GetHdcpStatus" => TextResponse(HttpStatusCode.NotFound, "missing"),

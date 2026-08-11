@@ -26,46 +26,53 @@ public static class CapabilityDetector
             AdapterOperation.SetPasswordProtection,
         };
 
-        await ProbeAsync(
+        var wallpaper = await ProbeAsync(
             () => advancedClient.GetWallpaperInfoAsync(cancellationToken),
             supported,
             AdapterOperation.GetWallpaperInfo,
             AdapterOperation.SetWallpaper);
-        await ProbeAsync(
+        _ = await ProbeAsync(
             () => advancedClient.GetWiFiSettingsAsync(cancellationToken),
             supported,
             AdapterOperation.GetWiFiSettings,
             AdapterOperation.SetWiFiSettings,
             AdapterOperation.ForgetWiFi);
-        await ProbeAsync(
+        _ = await ProbeAsync(
             () => advancedClient.GetHdcpStatusAsync(cancellationToken),
             supported,
             AdapterOperation.GetHdcpStatus,
             AdapterOperation.SetHdcpStatus);
-        await ProbeAsync(
+        _ = await ProbeAsync(
             () => advancedClient.GetLanguageAsync(cancellationToken),
             supported,
             AdapterOperation.GetLanguage,
             AdapterOperation.SetLanguage);
 
-        return new CapabilityProfile(identity.Generation, supported);
+        var generation = wallpaper?.ProtocolVariant == WallpaperProtocolVariant.LegacyGeneration2
+            ? AdapterGeneration.Generation2
+            : identity.Generation;
+        return new CapabilityProfile(generation, supported);
     }
 
-    private static async Task ProbeAsync<T>(
+    private static async Task<T?> ProbeAsync<T>(
         Func<Task<T>> probe,
         ISet<AdapterOperation> supported,
         params AdapterOperation[] operations)
+        where T : class
     {
         try
         {
-            _ = await probe();
+            var result = await probe();
             foreach (var operation in operations)
             {
                 supported.Add(operation);
             }
+
+            return result;
         }
         catch (UnsupportedAdapterOperationException)
         {
+            return null;
         }
     }
 }

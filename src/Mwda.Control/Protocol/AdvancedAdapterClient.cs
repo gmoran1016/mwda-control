@@ -14,9 +14,13 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         PropertyNameCaseInsensitive = true,
     };
 
+    private static readonly IReadOnlyList<string> LegacyWallpaperIds =
+        Array.AsReadOnly(new[] { "0", "1", "2", "3", "4" });
+
     private readonly AdapterEndpoint _endpoint;
     private readonly AdapterHttpTransport _transport;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private WallpaperProtocolVariant _wallpaperProtocolVariant = WallpaperProtocolVariant.Modern;
 
     public AdvancedAdapterClient(AdapterEndpoint endpoint)
         : this(endpoint, DefaultRequestTimeout)
@@ -44,11 +48,29 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         _transport = transport;
     }
 
-    public Task<WallpaperInfo> GetWallpaperInfoAsync(CancellationToken cancellationToken = default) =>
-        ReadAsync(
-            AdapterOperation.GetWallpaperInfo,
-            ParseWallpaperInfo,
-            cancellationToken);
+    public async Task<WallpaperInfo> GetWallpaperInfoAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var legacy = await ReadAsync(
+                AdapterOperation.GetWallpaperInfo,
+                ParseLegacyWallpaperInfo,
+                cancellationToken,
+                () => ProtocolRequestCatalog.CreateLegacyWallpaperReadRequest(_endpoint));
+            _wallpaperProtocolVariant = legacy.ProtocolVariant;
+            return legacy;
+        }
+        catch (UnsupportedAdapterOperationException)
+        {
+            var modern = await ReadAsync(
+                AdapterOperation.GetWallpaperInfo,
+                ParseWallpaperInfo,
+                cancellationToken);
+            _wallpaperProtocolVariant = modern.ProtocolVariant;
+            return modern;
+        }
+    }
 
     public async Task SetPredefinedWallpaperAsync(
         string wallpaperId,
@@ -62,7 +84,10 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         await ExecuteWriteAsync(
             AdapterOperation.SetWallpaper,
             _ => Task.FromResult(
-                ProtocolRequestCatalog.CreateSetPredefinedWallpaperRequest(_endpoint, wallpaperId)),
+                ProtocolRequestCatalog.CreateSetPredefinedWallpaperRequest(
+                    _endpoint,
+                    wallpaperId,
+                    _wallpaperProtocolVariant)),
             async token =>
             {
                 var readBack = await GetWallpaperInfoAsync(token);
@@ -217,9 +242,11 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
     private async Task<T> ReadAsync<T>(
         AdapterOperation operation,
         Func<string, T> parse,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<HttpRequestMessage>? createRequest = null)
     {
-        using var request = ProtocolRequestCatalog.CreateReadRequest(_endpoint, operation);
+        using var request = createRequest?.Invoke() ??
+            ProtocolRequestCatalog.CreateReadRequest(_endpoint, operation);
         var response = await _transport.SendAsync(request, cancellationToken);
         EnsureSuccess(operation, response);
 
@@ -280,7 +307,32 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         return new WallpaperInfo(
             response.WallpaperId,
             response.AvailableWallpaperIds.AsReadOnly(),
-            response.SupportsCustomWallpaper.Value);
+            response.SupportsCustomWallpaper.Value,
+            WallpaperProtocolVariant.Modern);
+    }
+
+    private static WallpaperInfo ParseLegacyWallpaperInfo(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object ||
+            !document.RootElement.TryGetProperty("WallpaperID", out var wallpaperId))
+        {
+            throw SchemaFailure("WallpaperID", "legacy wallpaper");
+        }
+
+        var currentWallpaperId = wallpaperId.ValueKind switch
+        {
+            JsonValueKind.Number when wallpaperId.TryGetInt64(out _) => wallpaperId.GetRawText(),
+            JsonValueKind.String when !string.IsNullOrWhiteSpace(wallpaperId.GetString()) =>
+                wallpaperId.GetString(),
+            _ => throw SchemaFailure("WallpaperID", "legacy wallpaper"),
+        };
+
+        return new WallpaperInfo(
+            currentWallpaperId,
+            LegacyWallpaperIds,
+            SupportsCustomWallpaper: false,
+            WallpaperProtocolVariant.LegacyGeneration2);
     }
 
     private static WifiSettings ParseWifiSettings(string json)

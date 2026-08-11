@@ -16,6 +16,10 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="180" />
@@ -32,15 +36,39 @@
                                Text="{Binding Identity.DeviceName, TargetNullValue=Unavailable}"
                                AutomationProperties.Name="Last probe adapter" />
                     <TextBlock Grid.Row="2" Grid.Column="0"
-                               Text="Address"
+                               Text="Model"
                                Style="{StaticResource FieldLabelStyle}" />
                     <TextBlock Grid.Row="2" Grid.Column="1"
-                               Text="{Binding AdapterAddress, TargetNullValue=Unavailable}"
-                               AutomationProperties.Name="Last probe address" />
+                               Text="{Binding Identity.Model, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Last probe model" />
                     <TextBlock Grid.Row="3" Grid.Column="0"
-                               Text="Operation status"
+                               Text="Generation"
                                Style="{StaticResource FieldLabelStyle}" />
                     <TextBlock Grid.Row="3" Grid.Column="1"
+                               Text="{Binding Identity.Generation}"
+                               AutomationProperties.Name="Last probe generation" />
+                    <TextBlock Grid.Row="4" Grid.Column="0"
+                               Text="Version"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1"
+                               Text="{Binding Identity.FirmwareVersion, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Last probe firmware version" />
+                    <TextBlock Grid.Row="5" Grid.Column="0"
+                               Text="MAC address"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="5" Grid.Column="1"
+                               Text="{Binding Identity.MacAddress, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Last probe MAC address" />
+                    <TextBlock Grid.Row="6" Grid.Column="0"
+                               Text="IP address"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="6" Grid.Column="1"
+                               Text="{Binding AdapterAddress, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Last probe address" />
+                    <TextBlock Grid.Row="7" Grid.Column="0"
+                               Text="Operation status"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="7" Grid.Column="1"
                                Text="{Binding DataContext.Connection.ConnectionState, RelativeSource={RelativeSource AncestorType={x:Type Window}}, TargetNullValue=Unavailable}"
                                AutomationProperties.Name="Current operation status" />
                 </Grid>

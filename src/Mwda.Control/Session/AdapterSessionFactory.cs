@@ -42,6 +42,7 @@ public sealed class AdapterSessionFactory : IAdapterSessionFactory
                 client,
                 advancedClient,
                 cancellationToken);
+            identity = EnrichIdentity(identity, capabilities);
             return new AdapterSession(
                 discoveredAdapter,
                 identity,
@@ -63,5 +64,25 @@ public sealed class AdapterSessionFactory : IAdapterSessionFactory
 
             throw;
         }
+    }
+
+    private static AdapterIdentity EnrichIdentity(
+        AdapterIdentity identity,
+        CapabilityProfile capabilities)
+    {
+        var generation = identity.Generation == AdapterGeneration.Unknown
+            ? capabilities.Generation
+            : identity.Generation;
+        var model = identity.Model;
+        if (model is null && generation == AdapterGeneration.Generation2)
+        {
+            model = AdapterModelNames.Generation2;
+        }
+
+        return identity with
+        {
+            Generation = generation,
+            Model = model,
+        };
     }
 }

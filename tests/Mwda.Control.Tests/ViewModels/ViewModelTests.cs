@@ -214,6 +214,43 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public void DiagnosticsSurfaceDisplaysReportedIdentityDetails()
+    {
+        var diagnosticsView = ReadSource("src/Mwda.Control/Views/DiagnosticsView.xaml");
+
+        Assert.Contains(
+            "Text=\"{Binding Identity.Model, TargetNullValue=Unavailable}\"",
+            diagnosticsView);
+        Assert.Contains(
+            "Text=\"{Binding Identity.Generation}\"",
+            diagnosticsView);
+        Assert.Contains(
+            "Text=\"{Binding Identity.FirmwareVersion, TargetNullValue=Unavailable}\"",
+            diagnosticsView);
+        Assert.Contains(
+            "Text=\"{Binding Identity.MacAddress, TargetNullValue=Unavailable}\"",
+            diagnosticsView);
+    }
+
+    [Fact]
+    public void DisconnectedSurfaceUsesOpaqueBackground()
+    {
+        var mainWindow = ReadSource("src/Mwda.Control/MainWindow.xaml");
+        var zIndex = mainWindow.IndexOf("Panel.ZIndex=\"10\"", StringComparison.Ordinal);
+
+        Assert.True(zIndex >= 0);
+        var elementStart = mainWindow.LastIndexOf('<', zIndex);
+        Assert.True(elementStart >= 0);
+        Assert.StartsWith("<Border", mainWindow[elementStart..zIndex], StringComparison.Ordinal);
+        Assert.Contains(
+            "Background=\"{DynamicResource WindowBackgroundBrush}\"",
+            mainWindow[elementStart..]);
+        Assert.Contains(
+            "<ContentControl Content=\"{Binding Connection}\" />",
+            mainWindow[elementStart..]);
+    }
+
+    [Fact]
     public async Task PairingSettingsExposeOnlyTheCharacterizedBooleanOperation()
     {
         Assert.Null(typeof(AdapterSettingsViewModel).GetProperty("Password"));
@@ -229,7 +266,9 @@ public sealed class ViewModelTests
         var adapterView = ReadSource("src/Mwda.Control/Views/AdapterView.xaml");
         Assert.DoesNotContain("<PasswordBox", adapterView);
         Assert.DoesNotContain("Pairing password (optional)", adapterView);
-        Assert.Contains("Pairing password changes are not supported by the characterized adapter protocol.", adapterView);
+        Assert.Contains(
+            "The adapter's PIN can be enabled or disabled here. This app does not change the PIN value itself.",
+            adapterView);
     }
 
     [Fact]

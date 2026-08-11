@@ -52,9 +52,9 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <TextBlock Text="Pairing password changes are not supported by the characterized adapter protocol. This control only toggles pairing protection."
+                    <TextBlock Text="The adapter's PIN can be enabled or disabled here. This app does not change the PIN value itself."
                                Style="{StaticResource HintTextStyle}"
-                               AutomationProperties.Name="Pairing password unsupported explanation" />
+                               AutomationProperties.Name="Pairing PIN explanation" />
 
                     <TextBlock Text="Language" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox ItemsSource="{Binding AvailableLanguageTags}"

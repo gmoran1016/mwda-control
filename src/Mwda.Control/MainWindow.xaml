@@ -88,11 +88,10 @@
                 <ContentControl Content="{Binding SelectedPageViewModel}"
                                 Margin="28,24" />
 
-                <ContentControl Content="{Binding Connection}"
-                                Panel.ZIndex="10"
-                                Background="{DynamicResource WindowBackgroundBrush}">
-                    <ContentControl.Style>
-                        <Style TargetType="{x:Type ContentControl}">
+                <Border Panel.ZIndex="10"
+                        Background="{DynamicResource WindowBackgroundBrush}">
+                    <Border.Style>
+                        <Style TargetType="{x:Type Border}">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Connection.IsConnected}" Value="False">
@@ -100,8 +99,9 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ContentControl.Style>
-                </ContentControl>
+                    </Border.Style>
+                    <ContentControl Content="{Binding Connection}" />
+                </Border>
             </Grid>
         </Grid>
     </Grid>
