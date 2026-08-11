@@ -71,6 +71,13 @@ public static class ProtocolRequestCatalog
             Array.Empty<KeyValuePair<string, object>>(),
             encoding: null);
 
+    public static HttpRequestMessage CreateLegacyPasswordProtectionReadRequest(AdapterEndpoint endpoint) =>
+        CreateRequest(
+            endpoint,
+            "GetPasswordProtectState",
+            Array.Empty<KeyValuePair<string, object>>(),
+            encoding: null);
+
     public static HttpRequestMessage CreateSetDeviceNameRequest(
         AdapterEndpoint endpoint,
         string deviceName,
@@ -104,6 +111,16 @@ public static class ProtocolRequestCatalog
             AdapterOperation.SetPasswordProtection,
             new[] { Field("PBCModeStatus", enabled ? "Disabled" : "Enabled") },
             encoding);
+
+    public static HttpRequestMessage CreateLegacySetPasswordProtectionRequest(
+        AdapterEndpoint endpoint,
+        bool enabled,
+        ProtocolWriteEncoding? encoding = null) =>
+        CreateRequest(
+            endpoint,
+            "SetPasswordProtect",
+            new[] { Field("PasswordProtect", enabled) },
+            encoding ?? GetRecordedWriteEncoding(AdapterOperation.SetPasswordProtection));
 
     public static HttpRequestMessage CreateSetPredefinedWallpaperRequest(
         AdapterEndpoint endpoint,

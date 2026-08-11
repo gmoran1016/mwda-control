@@ -12,6 +12,7 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
     private readonly AdapterHttpTransport _transport;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly IReadOnlyDictionary<AdapterOperation, ProtocolWriteEncoding> _writeEncodings;
+    private PasswordProtectionProtocolVariant? _passwordProtectionProtocolVariant;
 
     public AdapterClient(AdapterEndpoint endpoint)
         : this(endpoint, DefaultRequestTimeout)
@@ -146,9 +147,16 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                 nameof(password));
         }
 
+        if (_passwordProtectionProtocolVariant is null)
+        {
+            _ = await GetPasswordProtectionAsync(cancellationToken);
+        }
+
         await ExecuteWriteAsync(
             AdapterOperation.SetPasswordProtection,
-            encoding => ProtocolRequestCatalog.CreateSetPasswordProtectionRequest(_endpoint, enabled, encoding),
+            encoding => _passwordProtectionProtocolVariant == PasswordProtectionProtocolVariant.Legacy
+                ? ProtocolRequestCatalog.CreateLegacySetPasswordProtectionRequest(_endpoint, enabled, encoding)
+                : ProtocolRequestCatalog.CreateSetPasswordProtectionRequest(_endpoint, enabled, encoding),
             async token =>
             {
                 var readBack = await ReadPasswordProtectionAsync(
@@ -234,23 +242,65 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
             ProtocolJson.ParseOverscan,
             cancellationToken);
 
-    private Task<ReadResult<PasswordProtectionSettings>> ReadPasswordProtectionAsync(
+    private async Task<ReadResult<PasswordProtectionSettings>> ReadPasswordProtectionAsync(
         AdapterOperation readOperation,
         AdapterOperation contextOperation,
-        CancellationToken cancellationToken) =>
-        ReadAsync(
-            readOperation,
-            contextOperation,
-            ProtocolJson.ParsePasswordProtection,
-            cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        if (_passwordProtectionProtocolVariant == PasswordProtectionProtocolVariant.Legacy)
+        {
+            return await ReadAsync(
+                readOperation,
+                contextOperation,
+                ProtocolJson.ParsePasswordProtection,
+                cancellationToken,
+                () => ProtocolRequestCatalog.CreateLegacyPasswordProtectionReadRequest(_endpoint));
+        }
+
+        if (_passwordProtectionProtocolVariant == PasswordProtectionProtocolVariant.Modern)
+        {
+            return await ReadAsync(
+                readOperation,
+                contextOperation,
+                ProtocolJson.ParsePasswordProtection,
+                cancellationToken,
+                () => ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation));
+        }
+
+        try
+        {
+            var modern = await ReadAsync(
+                readOperation,
+                contextOperation,
+                ProtocolJson.ParsePasswordProtection,
+                cancellationToken,
+                () => ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation));
+            _passwordProtectionProtocolVariant = PasswordProtectionProtocolVariant.Modern;
+            return modern;
+        }
+        catch (UnsupportedAdapterOperationException)
+        {
+            var legacy = await ReadAsync(
+                readOperation,
+                contextOperation,
+                ProtocolJson.ParsePasswordProtection,
+                cancellationToken,
+                () => ProtocolRequestCatalog.CreateLegacyPasswordProtectionReadRequest(_endpoint));
+            _passwordProtectionProtocolVariant = PasswordProtectionProtocolVariant.Legacy;
+            return legacy;
+        }
+    }
 
     private async Task<ReadResult<T>> ReadAsync<T>(
         AdapterOperation readOperation,
         AdapterOperation contextOperation,
         Func<string, T> parse,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<HttpRequestMessage>? createRequest = null)
     {
-        using var request = ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation);
+        using var request = createRequest is null
+            ? ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation)
+            : createRequest();
         var response = await _transport.SendAsync(request, cancellationToken);
         EnsureSuccess(contextOperation, response);
 
@@ -285,6 +335,15 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
 
     private static void EnsureSuccess(AdapterOperation operation, AdapterHttpResponse response)
     {
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.NotImplemented)
+        {
+            throw UnsupportedFailure(
+                operation,
+                response.StatusCode,
+                response.Body,
+                "The adapter does not expose this operation.");
+        }
+
         if ((int)response.StatusCode is < 200 or > 299)
         {
             throw ProtocolFailure(
@@ -294,6 +353,16 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                 "The adapter returned a non-success status.");
         }
     }
+
+    private static UnsupportedAdapterOperationException UnsupportedFailure(
+        AdapterOperation operation,
+        HttpStatusCode statusCode,
+        string body,
+        string detail) =>
+        new(
+            operation,
+            statusCode,
+            ProtocolFailure(operation, statusCode, body, detail).Message);
 
     private static void ValidateWriteResponse(
         AdapterOperation operation,
@@ -392,4 +461,10 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
     }
 
     private sealed record ReadResult<T>(T Value, AdapterHttpResponse Response);
+
+    private enum PasswordProtectionProtocolVariant
+    {
+        Modern,
+        Legacy,
+    }
 }

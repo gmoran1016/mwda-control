@@ -132,23 +132,118 @@ public sealed class AdapterClientTests
         await client.SetPasswordProtectionAsync(enabled: true, password: null);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.NotImplemented)]
+    public async Task PasswordProtectionFallsBackToLegacyRouteWhenModernRouteIsUnsupported(
+        HttpStatusCode unsupportedStatus)
+    {
+        var requests = new List<string>();
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                ? TextResponse(unsupportedStatus, "unsupported")
+                : request.RequestUri.Query.Contains("GetPasswordProtectState", StringComparison.Ordinal)
+                    ? JsonResponse("{\"passwordProtect\":false}")
+                    : throw new InvalidOperationException("Unexpected request.");
+        });
+        using var client = CreateClient(handler);
+
+        var settings = await client.GetPasswordProtectionAsync();
+
+        Assert.False(settings.Enabled);
+        Assert.Equal(
+            new[]
+            {
+                "/cgi-bin/msupload.sh?Action=GetPBCMode",
+                "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+            },
+            requests);
+    }
+
+    [Fact]
+    public async Task LegacyPasswordProtectionWriteUsesLegacyRouteAfterNegotiation()
+    {
+        var requests = new List<string>();
+        var enabled = false;
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            if (request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal))
+            {
+                return TextResponse(HttpStatusCode.NotFound, "not found");
+            }
+
+            if (request.RequestUri.Query.Contains("SetPasswordProtect", StringComparison.Ordinal))
+            {
+                enabled = true;
+                return JsonResponse("{}");
+            }
+
+            if (request.RequestUri.Query.Contains("GetPasswordProtectState", StringComparison.Ordinal))
+            {
+                return JsonResponse($"{{\"passwordProtect\":{enabled.ToString().ToLowerInvariant()}}}");
+            }
+
+            throw new InvalidOperationException("Unexpected request.");
+        });
+        using var client = CreateClient(handler);
+
+        _ = await client.GetPasswordProtectionAsync();
+        await client.SetPasswordProtectionAsync(enabled: true, password: null);
+
+        Assert.Equal(
+            new[]
+            {
+                "/cgi-bin/msupload.sh?Action=GetPBCMode",
+                "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+                "/cgi-bin/msupload.sh?Action=SetPasswordProtect&PasswordProtect=true",
+                "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+            },
+            requests);
+    }
+
+    [Fact]
+    public async Task PasswordProtectionDoesNotFallBackForServerErrors()
+    {
+        var requestCount = 0;
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            requestCount++;
+            return request.RequestUri!.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                ? TextResponse(HttpStatusCode.InternalServerError, "server error")
+                : throw new InvalidOperationException("Unexpected fallback request.");
+        });
+        using var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+            () => client.GetPasswordProtectionAsync());
+
+        Assert.IsNotType<UnsupportedAdapterOperationException>(exception);
+        Assert.Equal(1, requestCount);
+    }
+
     [Fact]
     public async Task SuccessfulWriteWithNonzeroAdapterErrorCodeFailsBeforeReadBack()
     {
-        var requestCount = 0;
-        using var handler = new StubHttpMessageHandler(_ =>
+        var requests = new List<string>();
+        using var handler = new StubHttpMessageHandler(request =>
         {
-            requestCount++;
-            return requestCount == 1
-                ? JsonResponse("{\"ErrorCode\":-8}")
-                : JsonResponse("{\"PBCModeStatus\":\"Enabled\"}");
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                ? JsonResponse("{\"PBCModeStatus\":\"Disabled\"}")
+                : request.RequestUri.Query.Contains("SetPBCMode", StringComparison.Ordinal)
+                    ? JsonResponse("{\"ErrorCode\":-8}")
+                    : throw new InvalidOperationException("Unexpected read-back request.");
         });
         using var client = CreateClient(handler);
 
         var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
             () => client.SetPasswordProtectionAsync(enabled: false, password: null));
 
-        Assert.Equal(1, requestCount);
+        Assert.Equal(2, requests.Count);
+        Assert.DoesNotContain("GetPBCMode", requests[1], StringComparison.Ordinal);
         Assert.Contains("error code -8", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -173,8 +268,9 @@ public sealed class AdapterClientTests
 
         Assert.Equal(
             $"/cgi-bin/msupload.sh?Action=SetPBCMode&PBCModeStatus={expectedPbcMode}",
-            requests[0]);
-        Assert.Equal("/cgi-bin/msupload.sh?Action=GetPBCMode", requests[1]);
+            requests[1]);
+        Assert.Equal("/cgi-bin/msupload.sh?Action=GetPBCMode", requests[0]);
+        Assert.Equal("/cgi-bin/msupload.sh?Action=GetPBCMode", requests[2]);
     }
 
     [Fact]

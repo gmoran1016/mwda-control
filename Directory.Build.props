@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <VersionPrefix>1.0.9</VersionPrefix>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest</AnalysisLevel>
     <Nullable>enable</Nullable>

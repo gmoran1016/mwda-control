@@ -40,6 +40,14 @@ public sealed class ProtocolJsonTests
         Assert.Equal(enabled, settings.Enabled);
     }
 
+    [Fact]
+    public void ParsesObservedLowercaseLegacyPasswordProtectionSettings()
+    {
+        var settings = ProtocolJson.ParsePasswordProtection("{\"passwordProtect\":false}");
+
+        Assert.False(settings.Enabled);
+    }
+
     [Theory]
     [InlineData("identity")]
     [InlineData("overscan")]

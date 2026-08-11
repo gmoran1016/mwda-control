@@ -54,6 +54,18 @@ public sealed class ProtocolRequestCatalogTests
         Assert.Null(request.Content);
     }
 
+    [Fact]
+    public void LegacyPasswordProtectionReadUsesObservedGetRoute()
+    {
+        using var request = ProtocolRequestCatalog.CreateLegacyPasswordProtectionReadRequest(Endpoint);
+
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal(
+            "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+            request.RequestUri!.PathAndQuery);
+        Assert.Null(request.Content);
+    }
+
     [Theory]
     [MemberData(nameof(RecordedCoreSettingsFixture))]
     public void RecordedFixtureUsesQueryEncodedGetWrites(
@@ -67,6 +79,20 @@ public sealed class ProtocolRequestCatalogTests
         Assert.Equal(expectedReadBack, ProtocolRequestCatalog.GetReadBackOperation(operation));
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal(expectedPath, request.RequestUri!.PathAndQuery);
+        Assert.Null(request.Content);
+    }
+
+    [Fact]
+    public void LegacyPasswordProtectionWriteUsesObservedQueryRoute()
+    {
+        using var request = ProtocolRequestCatalog.CreateLegacySetPasswordProtectionRequest(
+            Endpoint,
+            enabled: true);
+
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal(
+            "/cgi-bin/msupload.sh?Action=SetPasswordProtect&PasswordProtect=true",
+            request.RequestUri!.PathAndQuery);
         Assert.Null(request.Content);
     }
 
