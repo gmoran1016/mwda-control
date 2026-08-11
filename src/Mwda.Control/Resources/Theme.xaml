@@ -162,53 +162,26 @@
         </Style.Triggers>
     </Style>
 
-    <DataTemplate x:Key="AdapterPageTemplate">
-        <views:AdapterView DataContext="{Binding Page}" />
-    </DataTemplate>
-    <DataTemplate x:Key="DisplayPageTemplate">
-        <views:DisplayView DataContext="{Binding Page}" />
-    </DataTemplate>
-    <DataTemplate x:Key="NetworkPageTemplate">
-        <views:NetworkView DataContext="{Binding Page}" />
-    </DataTemplate>
-    <DataTemplate x:Key="ConnectionPageTemplate">
-        <views:ConnectionView DataContext="{Binding Page}" />
-    </DataTemplate>
-    <DataTemplate x:Key="AboutPageTemplate">
-        <views:AboutView DataContext="{Binding Page}" />
-    </DataTemplate>
-    <DataTemplate x:Key="DiagnosticsPageTemplate">
-        <views:DiagnosticsView DataContext="{Binding Page}" />
-    </DataTemplate>
-
     <DataTemplate DataType="{x:Type vm:ConnectionViewModel}">
         <views:DisconnectedView />
     </DataTemplate>
 
-    <DataTemplate DataType="{x:Type vm:NavigationItem}">
-        <ContentControl Content="{Binding}">
-            <ContentControl.Style>
-                <Style TargetType="{x:Type ContentControl}">
-                    <Setter Property="ContentTemplate" Value="{StaticResource AdapterPageTemplate}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding Key}" Value="Display">
-                            <Setter Property="ContentTemplate" Value="{StaticResource DisplayPageTemplate}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Key}" Value="Network">
-                            <Setter Property="ContentTemplate" Value="{StaticResource NetworkPageTemplate}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Key}" Value="Connection">
-                            <Setter Property="ContentTemplate" Value="{StaticResource ConnectionPageTemplate}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Key}" Value="About">
-                            <Setter Property="ContentTemplate" Value="{StaticResource AboutPageTemplate}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding Key}" Value="Diagnostics">
-                            <Setter Property="ContentTemplate" Value="{StaticResource DiagnosticsPageTemplate}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ContentControl.Style>
-        </ContentControl>
+    <DataTemplate DataType="{x:Type vm:AdapterSettingsViewModel}">
+        <views:AdapterView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DisplaySettingsViewModel}">
+        <views:DisplayView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:NetworkSettingsViewModel}">
+        <views:NetworkView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ConnectionSettingsViewModel}">
+        <views:ConnectionView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AboutViewModel}">
+        <views:AboutView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DiagnosticsViewModel}">
+        <views:DiagnosticsView />
     </DataTemplate>
 </ResourceDictionary>

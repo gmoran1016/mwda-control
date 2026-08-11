@@ -13,6 +13,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject
     private CancellationTokenSource? _operationCancellation;
     private AdapterSession? _session;
     private string _ssid = string.Empty;
+    private IReadOnlyList<string> _availableSsids = [];
     private string _savedSsid = string.Empty;
     private string? _password;
     private bool _isConnected;
@@ -34,6 +35,12 @@ public sealed class NetworkSettingsViewModel : ObservableObject
 
     public AsyncRelayCommand ForgetCommand { get; }
 
+    public IReadOnlyList<string> AvailableSsids
+    {
+        get => _availableSsids;
+        private set => SetProperty(ref _availableSsids, value);
+    }
+
     public string Ssid
     {
         get => _ssid;
@@ -41,6 +48,7 @@ public sealed class NetworkSettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _ssid, value))
             {
+                AddAvailableSsid(value);
                 UpdateDirtyState();
             }
         }
@@ -108,6 +116,11 @@ public sealed class NetworkSettingsViewModel : ObservableObject
         IsVisible = session.CapabilityProfile.Supports(AdapterOperation.GetWiFiSettings);
         if (!IsVisible)
         {
+            if (!IsDirty)
+            {
+                AvailableSsids = [];
+            }
+
             ResultBanner = "Network settings are unavailable on this adapter.";
             return;
         }
@@ -117,6 +130,12 @@ public sealed class NetworkSettingsViewModel : ObservableObject
         {
             var settings = await session.AdvancedClient.GetWiFiSettingsAsync(cancellation.Token);
             _savedSsid = settings.Ssid;
+            if (!IsDirty)
+            {
+                AvailableSsids = [];
+            }
+
+            AddAvailableSsid(settings.Ssid);
             IsConnected = settings.IsConnected;
             if (!IsDirty)
             {
@@ -124,6 +143,8 @@ public sealed class NetworkSettingsViewModel : ObservableObject
                 SetProperty(ref _password, null, nameof(Password));
                 IsDirty = false;
             }
+
+            AddAvailableSsid(Ssid);
 
             ResultBanner = null;
         }
@@ -148,6 +169,13 @@ public sealed class NetworkSettingsViewModel : ObservableObject
 
         var requestedSsid = Ssid;
         var requestedPassword = Password;
+        if (string.IsNullOrWhiteSpace(requestedSsid))
+        {
+            IsDirty = true;
+            ResultBanner = "Enter a Wi-Fi network name.";
+            return;
+        }
+
         var cancellation = BeginOperation();
         try
         {
@@ -219,6 +247,17 @@ public sealed class NetworkSettingsViewModel : ObservableObject
     private void UpdateDirtyState()
     {
         IsDirty = !string.Equals(Ssid, _savedSsid, StringComparison.Ordinal) || Password is not null;
+    }
+
+    private void AddAvailableSsid(string? ssid)
+    {
+        if (string.IsNullOrWhiteSpace(ssid) ||
+            _availableSsids.Any(option => string.Equals(option, ssid, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        AvailableSsids = [.. _availableSsids, ssid];
     }
 
     private CancellationTokenSource BeginOperation()

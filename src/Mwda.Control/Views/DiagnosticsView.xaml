@@ -51,8 +51,9 @@
                     <TextBlock Text="Last result"
                                Style="{StaticResource SectionTitleStyle}" />
                     <Border Style="{StaticResource StatusBannerStyle}"
+                            DataContext="{Binding DataContext.Connection, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                             AutomationProperties.Name="Diagnostics status banner">
-                        <TextBlock Text="{Binding DataContext.Connection.ResultBanner, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                        <TextBlock Text="{Binding ResultBanner}"
                                    TextWrapping="Wrap"
                                    AutomationProperties.Name="Diagnostics operation result" />
                     </Border>

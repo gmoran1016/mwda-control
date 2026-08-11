@@ -1,10 +1,13 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using Mwda.Control.Discovery;
+using Mwda.Control.Mvvm;
 using Mwda.Control.Protocol;
 using Mwda.Control.Session;
 using Mwda.Control.ViewModels;
+using Mwda.Control.Views;
 
 namespace Mwda.Control.Tests.ViewModels;
 
@@ -85,6 +88,107 @@ public sealed class ViewModelTests
         {
             Assert.NotNull(assembly.GetType($"Mwda.Control.Views.{viewName}"));
         }
+    }
+
+    [Fact]
+    public async Task NetworkViewModelExposesCurrentAndTypedSsidOptionsAndUsesSsidValidation()
+    {
+        var availableSsidsProperty = typeof(NetworkSettingsViewModel).GetProperty("AvailableSsids");
+        Assert.NotNull(availableSsidsProperty);
+        Assert.Null(availableSsidsProperty!.GetSetMethod());
+
+        var viewModel = new NetworkSettingsViewModel();
+        var writeCount = 0;
+        var advancedClient = new RecordingAdvancedClient
+        {
+            SetWiFiSettings = (_, _) =>
+            {
+                writeCount++;
+                return Task.CompletedTask;
+            },
+        };
+        await viewModel.LoadAsync(
+            CreateSession(new RecordingClient(), advancedClient, CreateCapabilities(includeWifi: true)));
+
+        var initialOptions = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            availableSsidsProperty!.GetValue(viewModel));
+        Assert.Equal(["GymNet"], initialOptions);
+
+        viewModel.Ssid = "TrainingNet";
+
+        var editedOptions = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            availableSsidsProperty.GetValue(viewModel));
+        Assert.Equal(["GymNet", "TrainingNet"], editedOptions);
+
+        viewModel.Ssid = string.Empty;
+        await viewModel.SaveAsync();
+        Assert.Equal(0, writeCount);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal("Enter a Wi-Fi network name.", viewModel.ResultBanner);
+
+        var rule = new SsidValidationRule();
+        Assert.False(rule.Validate(string.Empty, CultureInfo.InvariantCulture).IsValid);
+        Assert.False(rule.Validate("  ", CultureInfo.InvariantCulture).IsValid);
+        Assert.True(rule.Validate("TrainingNet", CultureInfo.InvariantCulture).IsValid);
+
+        var networkView = ReadSource("src/Mwda.Control/Views/NetworkView.xaml");
+        Assert.Contains("ItemsSource=\"{Binding AvailableSsids}\"", networkView);
+        Assert.Contains("<validation:SsidValidationRule />", networkView);
+    }
+
+    [Fact]
+    public async Task ShellUsesTypedSelectedPageViewModelAndImplicitTypedTemplates()
+    {
+        var selectedPageViewModelProperty = typeof(MainWindowViewModel).GetProperty("SelectedPageViewModel");
+        Assert.NotNull(selectedPageViewModelProperty);
+        Assert.Equal(typeof(ObservableObject), typeof(NavigationItem).GetProperty("Page")?.PropertyType);
+
+        var shell = CreateShell(
+            CreateSession(new RecordingClient(), new RecordingAdvancedClient(), CreateCapabilities(includeWifi: true)));
+        await shell.StartupRefresh;
+
+        Assert.Same(shell.Adapter, selectedPageViewModelProperty!.GetValue(shell));
+
+        var aboutItem = shell.NavigationItems.Single(item => item.Key == "About");
+        shell.SelectedPage = aboutItem;
+        Assert.IsType<AboutViewModel>(aboutItem.Page);
+        Assert.Same(aboutItem.Page, selectedPageViewModelProperty.GetValue(shell));
+        Assert.IsType<DiagnosticsViewModel>(shell.NavigationItems.Single(item => item.Key == "Diagnostics").Page);
+
+        var theme = ReadSource("src/Mwda.Control/Resources/Theme.xaml");
+        foreach (var viewModelName in new[]
+                 {
+                     "AdapterSettingsViewModel",
+                     "DisplaySettingsViewModel",
+                     "NetworkSettingsViewModel",
+                     "ConnectionSettingsViewModel",
+                     "AboutViewModel",
+                     "DiagnosticsViewModel",
+                     "ConnectionViewModel",
+                 })
+        {
+            Assert.Contains($"<DataTemplate DataType=\"{{x:Type vm:{viewModelName}}}\">", theme);
+        }
+
+        Assert.DoesNotContain("DataTrigger Binding=\"{Binding Key}\"", theme);
+        var mainWindow = ReadSource("src/Mwda.Control/MainWindow.xaml");
+        Assert.Contains("Content=\"{Binding SelectedPageViewModel}\"", mainWindow);
+        Assert.DoesNotContain("<ContentControl Content=\"{Binding SelectedPage}\"", mainWindow);
+    }
+
+    [Fact]
+    public void AboutAndDiagnosticsBannersUseRuntimeBindings()
+    {
+        var aboutView = ReadSource("src/Mwda.Control/Views/AboutView.xaml");
+        Assert.DoesNotContain("Text=\"•  {Binding}\"", aboutView);
+        Assert.Contains("<TextBlock Text=\"{Binding}\"", aboutView);
+
+        var diagnosticsView = ReadSource("src/Mwda.Control/Views/DiagnosticsView.xaml");
+        Assert.Contains(
+            "DataContext=\"{Binding DataContext.Connection, RelativeSource={RelativeSource AncestorType={x:Type Window}}}\"",
+            diagnosticsView);
+        Assert.Contains("Text=\"{Binding ResultBanner}\"", diagnosticsView);
+        Assert.Contains("<Border Style=\"{StaticResource StatusBannerStyle}\"", diagnosticsView);
     }
 
     [Fact]
@@ -377,6 +481,19 @@ public sealed class ViewModelTests
         }
 
         return new CapabilityProfile(AdapterGeneration.Generation3, operations);
+    }
+
+    private static string ReadSource(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null &&
+               !File.Exists(Path.Combine(directory.FullName, "src", "Mwda.Control", "Mwda.Control.csproj")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+        return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
     }
 
     private static string GetAction(HttpRequestMessage request)

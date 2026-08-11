@@ -68,9 +68,14 @@
                                   AutomationProperties.Name="Supported adapter controls">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="•  {Binding}"
-                                           Margin="0,2"
-                                           AutomationProperties.Name="Supported adapter control" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="•"
+                                               Margin="0,2,6,2"
+                                               AutomationProperties.Name="Supported adapter control bullet" />
+                                    <TextBlock Text="{Binding}"
+                                               Margin="0,2"
+                                               AutomationProperties.Name="Supported adapter control" />
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

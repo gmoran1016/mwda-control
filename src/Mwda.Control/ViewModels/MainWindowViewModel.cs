@@ -8,6 +8,7 @@ namespace Mwda.Control.ViewModels;
 public sealed class MainWindowViewModel : ObservableObject
 {
     private NavigationItem? _selectedPage;
+    private ObservableObject? _selectedPageViewModel;
 
     public MainWindowViewModel(
         IAdapterDiscovery discovery,
@@ -22,6 +23,7 @@ public sealed class MainWindowViewModel : ObservableObject
         Network = new NetworkSettingsViewModel(operationTimeout, HandleConnectionLoss);
         ConnectionSettings = new ConnectionSettingsViewModel();
         Diagnostics = new DiagnosticsViewModel();
+        About = new AboutViewModel(Diagnostics);
         Connection = new ConnectionViewModel(
             discovery,
             sessionFactory,
@@ -39,7 +41,19 @@ public sealed class MainWindowViewModel : ObservableObject
     public NavigationItem? SelectedPage
     {
         get => _selectedPage;
-        set => SetProperty(ref _selectedPage, value);
+        set
+        {
+            if (SetProperty(ref _selectedPage, value))
+            {
+                SelectedPageViewModel = value?.Page;
+            }
+        }
+    }
+
+    public ObservableObject? SelectedPageViewModel
+    {
+        get => _selectedPageViewModel;
+        private set => SetProperty(ref _selectedPageViewModel, value);
     }
 
     public ConnectionViewModel Connection { get; }
@@ -53,6 +67,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ConnectionSettingsViewModel ConnectionSettings { get; }
 
     public DiagnosticsViewModel Diagnostics { get; }
+
+    public AboutViewModel About { get; }
 
     public Task StartupRefresh { get; }
 
@@ -98,11 +114,11 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         NavigationItems.Add(new NavigationItem("Connection", "Connection", ConnectionSettings));
-        NavigationItems.Add(new NavigationItem("About", "About", Diagnostics));
+        NavigationItems.Add(new NavigationItem("About", "About", About));
         NavigationItems.Add(new NavigationItem("Diagnostics", "Diagnostics", Diagnostics));
         SelectedPage =
             NavigationItems.FirstOrDefault(item => item.Key == selectedKey) ?? NavigationItems[0];
     }
 }
 
-public sealed record NavigationItem(string Key, string Title, object Page);
+public sealed record NavigationItem(string Key, string Title, ObservableObject Page);

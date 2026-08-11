@@ -24,9 +24,20 @@
                     <TextBlock Text="SSID" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox IsEditable="True"
                               IsTextSearchEnabled="False"
-                              Text="{Binding Ssid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              ItemsSource="{Binding AvailableSsids}"
                               IsEnabled="{Binding IsVisible}"
-                              AutomationProperties.Name="Wi-Fi network name list" />
+                              AutomationProperties.Name="Wi-Fi network name list">
+                        <ComboBox.Text>
+                            <Binding Path="Ssid"
+                                     Mode="TwoWay"
+                                     UpdateSourceTrigger="PropertyChanged"
+                                     ValidatesOnExceptions="True">
+                                <Binding.ValidationRules>
+                                    <validation:SsidValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </ComboBox.Text>
+                    </ComboBox>
                     <TextBlock Text="Choose or enter the network name used by the adapter."
                                Style="{StaticResource HintTextStyle}" />
 
