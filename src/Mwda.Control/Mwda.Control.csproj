@@ -6,8 +6,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\Mwda.Control.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Mwda.Control.ico" />
+  </ItemGroup>
 
 </Project>

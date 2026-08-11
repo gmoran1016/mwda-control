@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="MWDA Control icon">
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="#102B63"/>
+  <rect x="14" y="14" width="228" height="228" rx="46" fill="none" stroke="#22498E" stroke-width="4"/>
+
+  <g fill="none" stroke="#46D6F4" stroke-width="10" stroke-linecap="round">
+    <path d="M68 104C102 70 154 70 188 104"/>
+    <path d="M88 112C109 91 147 91 168 112"/>
+    <path d="M108 119C119 108 137 108 148 119"/>
+  </g>
+
+  <rect x="48" y="124" width="160" height="78" rx="18" fill="none" stroke="#F5FBFF" stroke-width="12"/>
+  <path d="M111 202V220M145 202V220M99 220H157" fill="none" stroke="#F5FBFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="163" r="15" fill="#46D6F4"/>
+  <circle cx="128" cy="163" r="5" fill="#102B63"/>
+</svg>
