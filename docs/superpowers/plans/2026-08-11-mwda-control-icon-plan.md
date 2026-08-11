@@ -105,18 +105,18 @@ Run `git diff --check`, inspect the staged paths, and confirm no unrelated files
 - The existing `.github/workflows/release.yml` builds tags matching `v*`.
 - A new version tag after the icon commit produces a release containing `Mwda.Control.exe`.
 
-- [ ] **Step 1: Commit the focused change**
+- [x] **Step 1: Commit the focused change**
 
 Use commit message `feat: add application icon`.
 
-- [ ] **Step 2: Push the master branch**
+- [x] **Step 2: Push the master branch**
 
 Push the icon commit to `origin/master`.
 
-- [ ] **Step 3: Tag the release**
+- [x] **Step 3: Tag the release**
 
 Create and push the next patch tag, `v1.0.3`, so GitHub Actions builds the icon-bearing executable.
 
-- [ ] **Step 4: Verify the GitHub release**
+- [x] **Step 4: Verify the GitHub release**
 
 Require the tagged workflow to pass its tests, single-file check, artifact upload, and release creation. Confirm the release asset is named `Mwda.Control.exe`.
