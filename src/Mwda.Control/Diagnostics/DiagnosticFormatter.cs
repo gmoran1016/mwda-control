@@ -20,6 +20,7 @@ public static class DiagnosticFormatter
             .AppendLine($"Capabilities: {capabilities}")
             .AppendLine($"Recent operation: {snapshot.RecentOperationStatus}")
             .AppendLine("PIN/password: [redacted]")
+            .AppendLine($"Local error: {(snapshot.LocalError is null ? "None recorded" : "[redacted]")}")
             .ToString();
     }
 }

@@ -1,6 +1,6 @@
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using Mwda.Control.Diagnostics;
 using Mwda.Control.ViewModels;
 
 namespace Mwda.Control.Views;
@@ -20,18 +20,72 @@ public partial class DiagnosticsView : UserControl
         }
 
         var shell = Window.GetWindow(this)?.DataContext as MainWindowViewModel;
-        var supportedOperations = diagnostics.Capabilities?.SupportedOperations is { } capabilities
-            ? string.Join(", ", capabilities)
-            : "Unavailable";
-        var text = new StringBuilder()
-            .AppendLine($"Adapter: {diagnostics.Identity?.DeviceName ?? "Unavailable"}")
-            .AppendLine($"Address: {diagnostics.AdapterAddress ?? "Unavailable"}")
-            .AppendLine($"Connection: {shell?.Connection.ConnectionState ?? "Unavailable"}")
-            .AppendLine($"Last result: {shell?.Connection.ResultBanner ?? "Unavailable"}")
-            .AppendLine($"Supported controls: {supportedOperations}")
-            .AppendLine($"Local error: {diagnostics.LastError ?? "None"}")
-            .ToString();
+        Clipboard.SetText(BuildDiagnosticsText(diagnostics, shell));
+    }
 
-        Clipboard.SetText(text);
+    public static string BuildDiagnosticsText(
+        DiagnosticsViewModel diagnostics,
+        MainWindowViewModel? shell)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        var capabilities = diagnostics.Capabilities?.SupportedOperations
+            .Select(operation => operation.ToString())
+            ?? Array.Empty<string>();
+        var snapshot = new DiagnosticSnapshot(
+            endpoint: diagnostics.AdapterAddress ?? "Unavailable",
+            adapterName: diagnostics.Identity?.DeviceName ?? "Unavailable",
+            pin: null,
+            password: null,
+            connectionState: shell?.Connection.ConnectionState ?? "Unavailable",
+            capabilities: capabilities,
+            recentOperationStatus: SummarizeRecentOperation(
+                shell?.Connection.ResultBanner,
+                diagnostics.LastError),
+            localError: diagnostics.LastError);
+
+        return DiagnosticFormatter.Format(snapshot);
+    }
+
+    private static string SummarizeRecentOperation(
+        string? resultBanner,
+        string? localError)
+    {
+        if (string.IsNullOrWhiteSpace(resultBanner))
+        {
+            return localError is null ? "None recorded" : "Local error recorded";
+        }
+
+        if (resultBanner.Equals("Applied.", StringComparison.Ordinal))
+        {
+            return "Applied";
+        }
+
+        if (resultBanner.StartsWith("Connected to ", StringComparison.Ordinal))
+        {
+            return "Connected";
+        }
+
+        if (resultBanner.StartsWith("No adapter was found.", StringComparison.Ordinal))
+        {
+            return "No adapter found";
+        }
+
+        if (resultBanner.StartsWith("Adapter not reachable;", StringComparison.Ordinal))
+        {
+            return "Adapter not reachable";
+        }
+
+        if (resultBanner.StartsWith("Disconnected.", StringComparison.Ordinal))
+        {
+            return "Disconnected";
+        }
+
+        if (resultBanner.Equals("Operation cancelled.", StringComparison.Ordinal))
+        {
+            return "Operation cancelled";
+        }
+
+        return "Result recorded";
     }
 }

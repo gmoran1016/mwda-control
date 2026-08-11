@@ -9,12 +9,14 @@ public sealed record DiagnosticSnapshot
         string endpoint,
         string adapterName,
         string? pin,
-        string? password)
+        string? password,
+        string? localError = null)
     {
         Endpoint = RequireText(endpoint, nameof(endpoint));
         AdapterName = RequireText(adapterName, nameof(adapterName));
         Pin = pin;
         Password = password;
+        LocalError = localError;
         ConnectionState = "Unknown";
         Capabilities = Array.Empty<string>();
         RecentOperationStatus = "None recorded";
@@ -26,8 +28,27 @@ public sealed record DiagnosticSnapshot
         IEnumerable<string> capabilities,
         string recentOperationStatus,
         string? pin = null,
-        string? password = null)
-        : this(endpoint, "Unavailable", pin, password)
+        string? password = null,
+        string? localError = null)
+        : this(endpoint, "Unavailable", pin, password, localError)
+    {
+        ConnectionState = RequireText(connectionState, nameof(connectionState));
+        Capabilities = NormalizeCapabilities(capabilities);
+        RecentOperationStatus = RequireText(
+            recentOperationStatus,
+            nameof(recentOperationStatus));
+    }
+
+    public DiagnosticSnapshot(
+        string endpoint,
+        string adapterName,
+        string? pin,
+        string? password,
+        string connectionState,
+        IEnumerable<string> capabilities,
+        string recentOperationStatus,
+        string? localError = null)
+        : this(endpoint, adapterName, pin, password, localError)
     {
         ConnectionState = RequireText(connectionState, nameof(connectionState));
         Capabilities = NormalizeCapabilities(capabilities);
@@ -42,14 +63,16 @@ public sealed record DiagnosticSnapshot
         IEnumerable<AdapterOperation> capabilities,
         string recentOperationStatus,
         string? pin = null,
-        string? password = null)
+        string? password = null,
+        string? localError = null)
         : this(
             endpoint,
             connectionState,
             capabilities.Select(operation => operation.ToString()),
             recentOperationStatus,
             pin,
-            password)
+            password,
+            localError)
     {
     }
 
@@ -60,6 +83,8 @@ public sealed record DiagnosticSnapshot
     public string? Pin { get; }
 
     public string? Password { get; }
+
+    public string? LocalError { get; }
 
     public string ConnectionState { get; }
 
