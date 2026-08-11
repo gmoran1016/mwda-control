@@ -21,7 +21,7 @@ public sealed class AdapterClientTests
             {
                 1 => """{"DeviceName":"WeightRoom-AD"}""",
                 2 => """{"IsAutoAdjust":false,"OverscanSettingValue":0}""",
-                3 => """{"PasswordProtect":false}""",
+                3 => """{"PBCModeStatus":"Disabled"}""",
                 _ => throw new InvalidOperationException("Unexpected request."),
             };
 
@@ -36,13 +36,13 @@ public sealed class AdapterClientTests
         Assert.Equal("WeightRoom-AD", identity.DeviceName);
         Assert.False(overscan.IsAutoAdjust);
         Assert.Equal(0, overscan.Value);
-        Assert.False(protection.Enabled);
+        Assert.True(protection.Enabled);
         Assert.Equal(
             new[]
             {
                 "/cgi-bin/msupload.sh?Action=GetDeviceName",
                 "/cgi-bin/msupload.sh?Action=GetOverscanSetting",
-                "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+                "/cgi-bin/msupload.sh?Action=GetPBCMode",
             },
             requests);
     }
@@ -108,9 +108,11 @@ public sealed class AdapterClientTests
     public async Task PasswordProtectionWriteRequiresExactTypedReadBack()
     {
         using var handler = new StubHttpMessageHandler(request =>
-            request.RequestUri!.Query.Contains("SetPasswordProtect", StringComparison.Ordinal)
-                ? JsonResponse("{}")
-                : JsonResponse("""{"PasswordProtect":true}"""));
+            request.RequestUri!.Query.Contains("SetPBCMode", StringComparison.Ordinal)
+                ? JsonResponse("{\"ErrorCode\":0}")
+                : request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                    ? JsonResponse("""{"PBCModeStatus":"Disabled"}""")
+                    : throw new InvalidOperationException("Unexpected request."));
         using var client = CreateClient(handler);
 
         await client.SetPasswordProtectionAsync(enabled: true, password: null);
@@ -120,12 +122,59 @@ public sealed class AdapterClientTests
     public async Task PasswordProtectionWriteAcceptsAnEmptySuccessBodyWhenReadBackMatches()
     {
         using var handler = new StubHttpMessageHandler(request =>
-            request.RequestUri!.Query.Contains("SetPasswordProtect", StringComparison.Ordinal)
+            request.RequestUri!.Query.Contains("SetPBCMode", StringComparison.Ordinal)
                 ? TextResponse(HttpStatusCode.OK, string.Empty)
-                : JsonResponse("""{"PasswordProtect":true}"""));
+                : request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                    ? JsonResponse("""{"PBCModeStatus":"Disabled"}""")
+                    : throw new InvalidOperationException("Unexpected request."));
         using var client = CreateClient(handler);
 
         await client.SetPasswordProtectionAsync(enabled: true, password: null);
+    }
+
+    [Fact]
+    public async Task SuccessfulWriteWithNonzeroAdapterErrorCodeFailsBeforeReadBack()
+    {
+        var requestCount = 0;
+        using var handler = new StubHttpMessageHandler(_ =>
+        {
+            requestCount++;
+            return requestCount == 1
+                ? JsonResponse("{\"ErrorCode\":-8}")
+                : JsonResponse("{\"PBCModeStatus\":\"Enabled\"}");
+        });
+        using var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<AdapterProtocolException>(
+            () => client.SetPasswordProtectionAsync(enabled: false, password: null));
+
+        Assert.Equal(1, requestCount);
+        Assert.Contains("error code -8", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(true, "Disabled")]
+    [InlineData(false, "Enabled")]
+    public async Task PairingProtectionMapsPinOnlyStateToPbcMode(
+        bool enabled,
+        string expectedPbcMode)
+    {
+        var requests = new List<string>();
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.Query.Contains("SetPBCMode", StringComparison.Ordinal)
+                ? JsonResponse("{\"ErrorCode\":0}")
+                : JsonResponse($"{{\"PBCModeStatus\":\"{expectedPbcMode}\"}}");
+        });
+        using var client = CreateClient(handler);
+
+        await client.SetPasswordProtectionAsync(enabled, password: null);
+
+        Assert.Equal(
+            $"/cgi-bin/msupload.sh?Action=SetPBCMode&PBCModeStatus={expectedPbcMode}",
+            requests[0]);
+        Assert.Equal("/cgi-bin/msupload.sh?Action=GetPBCMode", requests[1]);
     }
 
     [Fact]

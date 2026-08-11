@@ -53,7 +53,7 @@ public static class ProtocolRequestCatalog
         {
             AdapterOperation.GetDeviceName => "GetDeviceName",
             AdapterOperation.GetOverscan => "GetOverscanSetting",
-            AdapterOperation.GetPasswordProtection => "GetPasswordProtectState",
+            AdapterOperation.GetPasswordProtection => "GetPBCMode",
             AdapterOperation.GetWallpaperInfo => "GetWallpaperId",
             AdapterOperation.GetWiFiSettings => "GetWiFiSetting",
             AdapterOperation.GetHdcpStatus => "GetHdcpStatus",
@@ -102,7 +102,7 @@ public static class ProtocolRequestCatalog
         CreateWriteRequest(
             endpoint,
             AdapterOperation.SetPasswordProtection,
-            new[] { Field("PasswordProtect", enabled) },
+            new[] { Field("PBCModeStatus", enabled ? "Disabled" : "Enabled") },
             encoding);
 
     public static HttpRequestMessage CreateSetPredefinedWallpaperRequest(
@@ -222,7 +222,7 @@ public static class ProtocolRequestCatalog
         {
             AdapterOperation.SetDeviceName => "SetDeviceName",
             AdapterOperation.SetOverscan => "SetOverscanSetting",
-            AdapterOperation.SetPasswordProtection => "SetPasswordProtect",
+            AdapterOperation.SetPasswordProtection => "SetPBCMode",
             _ => throw UnsupportedOperation(operation),
         };
 

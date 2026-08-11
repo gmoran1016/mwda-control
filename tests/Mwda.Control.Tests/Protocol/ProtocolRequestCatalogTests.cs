@@ -20,7 +20,7 @@ public sealed class ProtocolRequestCatalogTests
         },
         {
             AdapterOperation.GetPasswordProtection,
-            "/cgi-bin/msupload.sh?Action=GetPasswordProtectState"
+            "/cgi-bin/msupload.sh?Action=GetPBCMode"
         },
     };
 
@@ -38,7 +38,7 @@ public sealed class ProtocolRequestCatalogTests
         },
         {
             AdapterOperation.SetPasswordProtection,
-            "/cgi-bin/msupload.sh?Action=SetPasswordProtect&PasswordProtect=true",
+            "/cgi-bin/msupload.sh?Action=SetPBCMode&PBCModeStatus=Disabled",
             AdapterOperation.GetPasswordProtection
         },
     };

@@ -488,7 +488,7 @@ public sealed class ViewModelTests
             var action = GetAction(request);
             return action switch
             {
-                "GetPasswordProtectState" => Task.FromResult(JsonResponse("""{"PasswordProtect":false}""")),
+                "GetPBCMode" => Task.FromResult(JsonResponse("""{"PBCModeStatus":"Disabled"}""")),
                 "GetOverscanSetting" => Task.FromResult(
                     JsonResponse("""{"IsAutoAdjust":false,"OverscanSettingValue":0}""")),
                 "SetDeviceName" => throw new HttpRequestException("Connection refused."),

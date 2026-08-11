@@ -142,7 +142,7 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
         if (password is not null)
         {
             throw new ArgumentException(
-                "The characterized SetPasswordProtect operation does not transmit a password.",
+                "The characterized pairing-protection operation does not transmit a password.",
                 nameof(password));
         }
 
@@ -161,7 +161,7 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                         AdapterOperation.SetPasswordProtection,
                         readBack.Response.StatusCode,
                         readBack.Response.Body,
-                        "The exact password-protection read-back did not match the requested value.");
+                        "The exact pairing-protection read-back did not match the requested value.");
                 }
             },
             cancellationToken);
@@ -314,6 +314,17 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                     response.StatusCode,
                     response.Body,
                     "The successful write response was not a JSON object.");
+            }
+
+            if (document.RootElement.TryGetProperty("ErrorCode", out var errorCode) &&
+                errorCode.TryGetInt32(out var numericErrorCode) &&
+                numericErrorCode != 0)
+            {
+                throw ProtocolFailure(
+                    operation,
+                    response.StatusCode,
+                    response.Body,
+                    $"The adapter returned error code {numericErrorCode}.");
             }
         }
         catch (JsonException exception)

@@ -16,7 +16,7 @@ Build a standalone Windows desktop utility that replaces the Microsoft Wireless 
 - The adapter currently responds to these read-only control requests:
   - `GET /cgi-bin/msupload.sh?Action=GetDeviceName` → `{"DeviceName":"WeightRoom-AD"}`
   - `GET /cgi-bin/msupload.sh?Action=GetOverscanSetting` → `{"IsAutoAdjust":false,"OverscanSettingValue":0}`
-  - `GET /cgi-bin/msupload.sh?Action=GetPasswordProtectState` → `{"PasswordProtect":false}`
+  - `GET /cgi-bin/msupload.sh?Action=GetPBCMode` → `{"PBCModeStatus":"Disabled"}`; `Disabled` is the adapter's PIN-only state.
 - The original Store app launches an `ApplicationFrameHost` window but does not expose a usable process-backed window on this Windows 11 system, matching the reported crash behavior.
 
 ## Scope
@@ -28,7 +28,7 @@ The app presents only controls supported by the connected adapter's capability p
 | Original capability | Replacement behavior |
 | --- | --- |
 | `ChangeDeviceName` | Read and save the adapter display name with validation matching the adapter's allowed character set. |
-| `SetPinCode` / `SetPasswordProtect` | Read and change whether pairing requires a PIN; allow entering the PIN/password only in the adapter's local settings workflow. |
+| `SetPinCode` / `SetPBCMode` | Read and change whether pairing requires a PIN; the app changes PIN-only mode and does not change the PIN value itself. |
 | `ChangePassword` | Change the adapter's management password when the adapter reports password protection support. |
 | `SetOverscan` | Toggle automatic adjustment and set the manual overscan value. |
 | `SetDisplayWallpaper` / predefined wallpaper | Show supported built-in wallpapers and apply the selected wallpaper. |
@@ -89,8 +89,8 @@ The discovery layer tries the adapter's supported HTTP/HTTPS modes without disab
 GetIdentity()
 GetOverscan()
 SetOverscan(value)
-GetPasswordProtection()
-SetPasswordProtection(enabled)
+GetPasswordProtection()  // backed by GetPBCMode; Disabled means PIN-only
+SetPasswordProtection(enabled)  // backed by SetPBCMode
 GetWallpaperInfo()
 SetWallpaper(wallpaper)
 GetWiFiSettings()

@@ -48,13 +48,19 @@ public static class ProtocolJson
 
     public static PasswordProtectionSettings ParsePasswordProtection(string json)
     {
-        var response = Deserialize<PasswordProtectionResponse>(json, "password-protection settings");
-        if (response.PasswordProtect is null)
+        var response = Deserialize<PairingProtectionResponse>(json, "pairing-protection settings");
+        if (response.PbcModeStatus is null)
         {
-            throw MissingOrInvalidProperty("PasswordProtect", "password-protection settings");
+            throw MissingOrInvalidProperty("PBCModeStatus", "pairing-protection settings");
         }
 
-        return new PasswordProtectionSettings(response.PasswordProtect.Value);
+        return response.PbcModeStatus switch
+        {
+            "Disabled" => new PasswordProtectionSettings(true),
+            "Enabled" => new PasswordProtectionSettings(false),
+            _ => throw new AdapterProtocolException(
+                "The pairing-protection settings response contains an unknown PBCModeStatus value."),
+        };
     }
 
     private static T Deserialize<T>(string json, string responseName)
@@ -91,9 +97,9 @@ public static class ProtocolJson
         public int? OverscanSettingValue { get; init; }
     }
 
-    private sealed class PasswordProtectionResponse
+    private sealed class PairingProtectionResponse
     {
-        [JsonPropertyName("PasswordProtect")]
-        public bool? PasswordProtect { get; init; }
+        [JsonPropertyName("PBCModeStatus")]
+        public string? PbcModeStatus { get; init; }
     }
 }

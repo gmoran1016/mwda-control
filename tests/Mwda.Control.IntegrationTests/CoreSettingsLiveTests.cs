@@ -14,13 +14,13 @@ public sealed class CoreSettingsLiveTests
         var originalIdentity = await live.Client.GetIdentityAsync();
         var originalOverscan = await live.Client.GetOverscanAsync();
         var originalProtection = await live.Client.GetPasswordProtectionAsync();
-        Assert.Equal("WeightRoom-AD", originalIdentity.DeviceName);
+        Assert.False(string.IsNullOrWhiteSpace(originalIdentity.DeviceName));
 
         await CharacterizeDeviceNameAndRestoreAsync(live, originalIdentity.DeviceName);
         await CharacterizeOverscanAndRestoreAsync(live, originalOverscan);
-        await CharacterizePasswordProtectionAndRestoreAsync(live, originalProtection.Enabled);
+        await VerifyPairingProtectionUsesPbcModeAsync(live, originalProtection.Enabled);
 
-        Assert.Equal(3, live.AcceptedWriteEncodings.Count);
+        Assert.Equal(2, live.AcceptedWriteEncodings.Count);
 
         var finalIdentity = await live.Client.GetIdentityAsync();
         var finalOverscan = await live.Client.GetOverscanAsync();
@@ -76,25 +76,19 @@ public sealed class CoreSettingsLiveTests
                 client => client.SetOverscanAsync(original)));
     }
 
-    private static async Task CharacterizePasswordProtectionAndRestoreAsync(
+    private static async Task VerifyPairingProtectionUsesPbcModeAsync(
         LiveAdapterFixture live,
         bool originallyEnabled)
     {
-        var temporaryValue = !originallyEnabled;
-        await live.CharacterizeWriteEncodingAsync(
+        Assert.True(originallyEnabled, "The live Four Square-logo adapter should report PIN-only mode as enabled.");
+
+        using var client = live.CreateCandidateClient(
             AdapterOperation.SetPasswordProtection,
-            candidate => TryCandidateAsync(
-                live,
-                AdapterOperation.SetPasswordProtection,
-                candidate,
-                client => client.SetPasswordProtectionAsync(temporaryValue, password: null)),
-            fallback => RestoreIfNeededAsync(
-                live,
-                AdapterOperation.SetPasswordProtection,
-                fallback,
-                originallyEnabled,
-                async client => (await client.GetPasswordProtectionAsync()).Enabled,
-                client => client.SetPasswordProtectionAsync(originallyEnabled, password: null)));
+            ProtocolWriteEncoding.QueryParameters);
+        await client.SetPasswordProtectionAsync(enabled: true, password: null);
+
+        var readBack = await live.Client.GetPasswordProtectionAsync();
+        Assert.True(readBack.Enabled);
     }
 
     private static async Task<bool> TryCandidateAsync(

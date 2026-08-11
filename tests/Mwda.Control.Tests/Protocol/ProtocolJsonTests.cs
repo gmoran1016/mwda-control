@@ -24,9 +24,9 @@ public sealed class ProtocolJsonTests
     [Fact]
     public void ParsesObservedPasswordProtectionSettings()
     {
-        var settings = ProtocolJson.ParsePasswordProtection("""{"PasswordProtect":false}""");
+        var settings = ProtocolJson.ParsePasswordProtection("""{"PBCModeStatus":"Disabled"}""");
 
-        Assert.False(settings.Enabled);
+        Assert.True(settings.Enabled);
     }
 
     [Theory]
