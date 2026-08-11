@@ -98,10 +98,10 @@ public sealed class AdapterClientTests
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.Query.Contains("SetOverscanSetting", StringComparison.Ordinal)
                 ? JsonResponse("{}")
-                : JsonResponse("""{"IsAutoAdjust":true,"OverscanSettingValue":25}"""));
+                : JsonResponse("""{"IsAutoAdjust":true,"OverscanSettingValue":15}"""));
         using var client = CreateClient(handler);
 
-        await client.SetOverscanAsync(new OverscanSettings(true, 25));
+        await client.SetOverscanAsync(new OverscanSettings(true, 15));
     }
 
     [Fact]

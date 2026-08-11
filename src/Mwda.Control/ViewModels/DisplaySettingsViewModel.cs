@@ -22,6 +22,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
     private IReadOnlyList<string> _availableWallpaperIds = [];
     private bool _supportsCustomWallpaper;
     private bool _isWallpaperSupported;
+    private bool _supportsAutomaticOverscan;
     private bool _isAvailable;
     private bool _isDirty;
     private string? _resultBanner;
@@ -91,6 +92,12 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         private set => SetProperty(ref _isWallpaperSupported, value);
     }
 
+    public bool SupportsAutomaticOverscan
+    {
+        get => _supportsAutomaticOverscan;
+        private set => SetProperty(ref _supportsAutomaticOverscan, value);
+    }
+
     public bool IsAvailable
     {
         get => _isAvailable;
@@ -126,6 +133,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(session);
         _session = session;
         IsAvailable = true;
+        SupportsAutomaticOverscan = session.AdapterIdentity.Generation != AdapterGeneration.Generation2;
         IsWallpaperSupported =
             session.CapabilityProfile.Supports(AdapterOperation.GetWallpaperInfo) &&
             session.CapabilityProfile.Supports(AdapterOperation.SetWallpaper);
@@ -179,6 +187,12 @@ public sealed class DisplaySettingsViewModel : ObservableObject
             if (requestedOverscan.IsAutoAdjust != _savedIsAutoAdjust ||
                 requestedOverscan.Value != _savedOverscanValue)
             {
+                if (requestedOverscan.IsAutoAdjust && !SupportsAutomaticOverscan)
+                {
+                    throw new InvalidOperationException(
+                        "Automatic overscan adjustment is unavailable on this legacy adapter; use a manual value from 0 to 15.");
+                }
+
                 if (!session.CapabilityProfile.Supports(AdapterOperation.SetOverscan))
                 {
                     throw new InvalidOperationException("Overscan settings are unavailable on this adapter.");
@@ -256,6 +270,7 @@ public sealed class DisplaySettingsViewModel : ObservableObject
         _operationCancellation?.Cancel();
         _session = null;
         IsAvailable = false;
+        SupportsAutomaticOverscan = false;
         ResultBanner = "Disconnected. Unsaved edits were preserved.";
     }
 

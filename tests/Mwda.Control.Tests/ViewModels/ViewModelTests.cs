@@ -350,6 +350,21 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public async Task LegacyGenerationTwoRejectsAutomaticOverscanBeforeWriting()
+    {
+        var client = new RecordingClient();
+        var viewModel = new DisplaySettingsViewModel();
+        await viewModel.LoadAsync(CreateSession(client, new RecordingAdvancedClient(), CoreCapabilities()));
+
+        viewModel.IsAutoAdjust = true;
+        await viewModel.SaveAsync();
+
+        Assert.True(viewModel.IsDirty);
+        Assert.Contains("Automatic overscan adjustment is unavailable", viewModel.ResultBanner);
+        Assert.Empty(client.OverscanWrites);
+    }
+
+    [Fact]
     public async Task SaveCommandReportsExecutingUntilTheTypedWriteCompletes()
     {
         var writeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -718,6 +733,8 @@ public sealed class ViewModelTests
 
         public List<string> DeviceNameWrites { get; } = [];
 
+        public List<OverscanSettings> OverscanWrites { get; } = [];
+
         public List<(bool Enabled, string? Password)> PasswordProtectionWrites { get; } = [];
 
         public int DisposeCount { get; private set; }
@@ -730,7 +747,11 @@ public sealed class ViewModelTests
 
         public Task SetOverscanAsync(
             OverscanSettings settings,
-            CancellationToken cancellationToken = default) => Task.CompletedTask;
+            CancellationToken cancellationToken = default)
+        {
+            OverscanWrites.Add(settings);
+            return Task.CompletedTask;
+        }
 
         public Task<PasswordProtectionSettings> GetPasswordProtectionAsync(
             CancellationToken cancellationToken = default) =>

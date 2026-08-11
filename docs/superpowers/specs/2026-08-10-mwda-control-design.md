@@ -30,7 +30,7 @@ The app presents only controls supported by the connected adapter's capability p
 | `ChangeDeviceName` | Read and save the adapter display name with validation matching the adapter's allowed character set. |
 | `SetPinCode` / `SetPBCMode` | Read and change whether pairing requires a PIN; the app changes PIN-only mode and does not change the PIN value itself. |
 | `ChangePassword` | Change the adapter's management password when the adapter reports password protection support. |
-| `SetOverscan` | Toggle automatic adjustment and set the manual overscan value. |
+| `SetOverscan` | Set the manual overscan value from 0 through 15. Automatic adjustment is shown only for generations that persist that setting; the live Four Square-logo Generation 2 adapter accepts the legacy manual range but does not persist the automatic flag. |
 | `SetDisplayWallpaper` / predefined wallpaper | Show supported built-in wallpapers and apply the selected wallpaper. |
 | Custom wallpaper | Select a local image, validate its size/type, and upload it only when the adapter reports custom-wallpaper support. |
 | `WifiConnection` / `SetConfigureWiFiAP` / `ForgetWiFi` | Scan, select, configure, and forget the adapter's infrastructure Wi-Fi network on generations that expose these operations. |

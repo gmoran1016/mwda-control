@@ -3,7 +3,7 @@ namespace Mwda.Control.Protocol;
 public static class AdapterValidation
 {
     public const int MinimumOverscanValue = 0;
-    public const int MaximumOverscanValue = 100;
+    public const int MaximumOverscanValue = 15;
 
     public static bool IsValidDeviceName(string? value) =>
         !string.IsNullOrEmpty(value) && value.All(IsAllowedDeviceNameCharacter);

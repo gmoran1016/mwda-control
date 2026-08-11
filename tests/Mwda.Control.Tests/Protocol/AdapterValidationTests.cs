@@ -17,10 +17,22 @@ public sealed class AdapterValidationTests
     public void InvalidDeviceNameIsRejected(string value) =>
         Assert.False(AdapterValidation.IsValidDeviceName(value));
 
-    [Fact]
-    public void OverscanMustBeWithinAdapterRange()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(15)]
+    public void OverscanAcceptsTheLegacyAdapterRange(int value)
+    {
+        var settings = AdapterValidation.CreateOverscan(isAutoAdjust: false, value);
+
+        Assert.Equal(value, settings.Value);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(16)]
+    public void OverscanRejectsValuesOutsideTheLegacyAdapterRange(int value)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            AdapterValidation.CreateOverscan(isAutoAdjust: false, value: -1));
+            AdapterValidation.CreateOverscan(isAutoAdjust: false, value));
     }
 }

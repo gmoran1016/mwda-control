@@ -22,12 +22,28 @@
                     <TextBlock Text="Image framing" Style="{StaticResource SectionTitleStyle}" />
                     <CheckBox Content="Automatically adjust the image"
                               IsChecked="{Binding IsAutoAdjust, Mode=TwoWay}"
-                              IsEnabled="{Binding IsAvailable}"
+                              IsEnabled="{Binding SupportsAutomaticOverscan}"
                               AutomationProperties.Name="Automatically adjust image" />
+                    <TextBlock Text="Automatic adjustment is unavailable on this legacy adapter; use a manual value.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding SupportsAutomaticOverscan}" Value="False" />
+                                            <Condition Binding="{Binding IsAvailable}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <TextBlock Text="Overscan value" Style="{StaticResource FieldLabelStyle}" />
                     <Slider Minimum="0"
-                            Maximum="100"
+                            Maximum="15"
                             TickFrequency="1"
                             IsSnapToTickEnabled="True"
                             Value="{Binding OverscanValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -46,7 +62,7 @@
                             </Binding>
                         </TextBox.Text>
                     </TextBox>
-                    <TextBlock Text="Use a value from 0 to 100."
+                    <TextBlock Text="Use a value from 0 to 15."
                                Style="{StaticResource HintTextStyle}" />
                 </StackPanel>
             </Border>

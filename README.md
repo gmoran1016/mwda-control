@@ -32,7 +32,7 @@ MWDA Control probes the selected adapter and enables controls only when the adap
 - Read adapter identity, firmware version, and other diagnostic information.
 - Read and change the adapter name.
 - Read and change pairing PIN protection (PIN-only mode); the app does not change the PIN value itself.
-- Read and change overscan, including automatic adjustment.
+- Read and change overscan in the adapter's supported 0–15 range. Automatic adjustment is shown only for generations that persist that setting.
 - Read and change supported wallpaper settings.
 - Read and change supported adapter Wi-Fi settings, including connect and forget operations.
 - Read and change the adapter language when supported.
