@@ -117,6 +117,18 @@ public sealed class AdapterClientTests
     }
 
     [Fact]
+    public async Task PasswordProtectionWriteAcceptsAnEmptySuccessBodyWhenReadBackMatches()
+    {
+        using var handler = new StubHttpMessageHandler(request =>
+            request.RequestUri!.Query.Contains("SetPasswordProtect", StringComparison.Ordinal)
+                ? TextResponse(HttpStatusCode.OK, string.Empty)
+                : JsonResponse("""{"PasswordProtect":true}"""));
+        using var client = CreateClient(handler);
+
+        await client.SetPasswordProtectionAsync(enabled: true, password: null);
+    }
+
+    [Fact]
     public async Task PasswordValueIsRejectedBecauseTheRecordedOperationDoesNotTransmitIt()
     {
         using var handler = new StubHttpMessageHandler(

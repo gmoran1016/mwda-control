@@ -299,6 +299,11 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
         AdapterOperation operation,
         AdapterHttpResponse response)
     {
+        if (string.IsNullOrWhiteSpace(response.Body))
+        {
+            return;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(response.Body);
