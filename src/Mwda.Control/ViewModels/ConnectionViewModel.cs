@@ -6,7 +6,8 @@ namespace Mwda.Control.ViewModels;
 
 public sealed class ConnectionViewModel : ObservableObject, IDisposable
 {
-    private static readonly TimeSpan DefaultOperationTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DefaultOperationTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan DiscoveryRetryDelay = TimeSpan.FromMilliseconds(500);
 
     private readonly IAdapterDiscovery _discovery;
     private readonly IAdapterSessionFactory _sessionFactory;
@@ -95,7 +96,7 @@ public sealed class ConnectionViewModel : ObservableObject, IDisposable
         ResultBanner = null;
         try
         {
-            var adapters = await _discovery.DiscoverAsync(cancellation.Token);
+            var adapters = await DiscoverWithRetryAsync(cancellation.Token);
             if (adapters.Count == 0)
             {
                 if (ReferenceEquals(_refreshCancellation, cancellation))
@@ -167,6 +168,19 @@ public sealed class ConnectionViewModel : ObservableObject, IDisposable
         ResultBanner = message;
         _disconnected();
         session?.Dispose();
+    }
+
+    private async Task<IReadOnlyList<DiscoveredAdapter>> DiscoverWithRetryAsync(
+        CancellationToken cancellationToken)
+    {
+        var adapters = await _discovery.DiscoverAsync(cancellationToken);
+        if (adapters.Count > 0)
+        {
+            return adapters;
+        }
+
+        await Task.Delay(DiscoveryRetryDelay, cancellationToken);
+        return await _discovery.DiscoverAsync(cancellationToken);
     }
 
     private static string CreateNotReachableMessage() =>

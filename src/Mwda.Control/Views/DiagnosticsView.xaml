@@ -59,7 +59,7 @@
                     </Border>
                     <TextBlock Text="Local error details"
                                Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox Text="{Binding LastError, TargetNullValue=No local errors recorded}"
+                    <TextBox Text="{Binding LastError, Mode=OneWay, TargetNullValue=No local errors recorded}"
                              IsReadOnly="True"
                              TextWrapping="Wrap"
                              MinHeight="64"

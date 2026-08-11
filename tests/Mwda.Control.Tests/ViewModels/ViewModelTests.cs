@@ -91,6 +91,25 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public void DataTemplateViewsInitializeTheirGeneratedXamlContent()
+    {
+        foreach (var viewName in new[]
+                 {
+                     "DisconnectedView",
+                     "AdapterView",
+                     "DisplayView",
+                     "NetworkView",
+                     "ConnectionView",
+                     "AboutView",
+                 })
+        {
+            var codeBehind = ReadSource($"src/Mwda.Control/Views/{viewName}.xaml.cs");
+            Assert.Contains($"public {viewName}()", codeBehind);
+            Assert.Contains("InitializeComponent();", codeBehind);
+        }
+    }
+
+    [Fact]
     public async Task NetworkViewModelExposesCurrentAndTypedSsidOptionsAndUsesSsidValidation()
     {
         var availableSsidsProperty = typeof(NetworkSettingsViewModel).GetProperty("AvailableSsids");
@@ -188,6 +207,9 @@ public sealed class ViewModelTests
             "DataContext=\"{Binding DataContext.Connection, RelativeSource={RelativeSource AncestorType={x:Type Window}}}\"",
             diagnosticsView);
         Assert.Contains("Text=\"{Binding ResultBanner}\"", diagnosticsView);
+        Assert.Contains(
+            "Text=\"{Binding LastError, Mode=OneWay, TargetNullValue=No local errors recorded}\"",
+            diagnosticsView);
         Assert.Contains("<Border Style=\"{StaticResource StatusBannerStyle}\"", diagnosticsView);
     }
 
@@ -344,6 +366,57 @@ public sealed class ViewModelTests
         await shell.StartupRefresh;
 
         Assert.False(shell.Connection.RefreshCommand.IsExecuting);
+    }
+
+    [Fact]
+    public async Task StartupRefreshAllowsDiscoveryAndSessionLoadingToExceedTheOriginalTenSecondBudget()
+    {
+        var session = CreateSession(
+            new RecordingClient(),
+            new RecordingAdvancedClient(),
+            CoreCapabilities());
+        var discovery = new StubDiscovery(async cancellationToken =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(6), cancellationToken);
+            return [Discovered];
+        });
+        var factory = new StubSessionFactory(async (_, cancellationToken) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(6), cancellationToken);
+            return session;
+        });
+
+        var shell = new MainWindowViewModel(discovery, factory);
+        await shell.StartupRefresh;
+
+        Assert.True(shell.Connection.IsConnected);
+        Assert.Equal("Connected", shell.Connection.ConnectionState);
+        Assert.Equal("Connected to WeightRoom-AD.", shell.Connection.ResultBanner);
+    }
+
+    [Fact]
+    public async Task StartupRefreshRetriesAfterAnEmptyDiscoveryResult()
+    {
+        var session = CreateSession(
+            new RecordingClient(),
+            new RecordingAdvancedClient(),
+            CoreCapabilities());
+        var discoveryCalls = 0;
+        var discovery = new StubDiscovery(_ =>
+        {
+            discoveryCalls++;
+            return discoveryCalls == 1
+                ? Task.FromResult<IReadOnlyList<DiscoveredAdapter>>([])
+                : Task.FromResult<IReadOnlyList<DiscoveredAdapter>>([Discovered]);
+        });
+        var shell = new MainWindowViewModel(
+            discovery,
+            new StubSessionFactory((_, _) => Task.FromResult(session)));
+
+        await shell.StartupRefresh;
+
+        Assert.True(shell.Connection.IsConnected);
+        Assert.Equal(2, discovery.CallCount);
     }
 
     [Fact]
