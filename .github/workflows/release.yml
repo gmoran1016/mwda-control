@@ -51,7 +51,7 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: dotnet restore .\MWDA.Control.sln
+        run: dotnet restore .\MWDA.Control.sln --runtime win-x64
 
       - name: Publish single executable
         shell: pwsh
