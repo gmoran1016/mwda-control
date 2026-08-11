@@ -25,15 +25,27 @@ if ($sdkExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($sdkVersion)) {
 
 Write-Output "Using dotnet SDK $sdkVersion from $dotnetPath"
 
-& $dotnetPath publish .\src\Mwda.Control\Mwda.Control.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false --output .\artifacts\publish\win-x64
+$publishDirectory = Join-Path $PSScriptRoot 'artifacts\publish\win-x64'
+if (Test-Path -LiteralPath $publishDirectory) {
+    Remove-Item -LiteralPath $publishDirectory -Recurse -Force
+}
+
+New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
+
+& $dotnetPath publish .\src\Mwda.Control\Mwda.Control.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false --output $publishDirectory
 $publishExitCode = $LASTEXITCODE
 if ($publishExitCode -ne 0) {
     throw "dotnet publish failed with exit code $publishExitCode."
 }
 
-$executablePath = Join-Path $PSScriptRoot 'artifacts\publish\win-x64\Mwda.Control.exe'
+$publishedFiles = @(Get-ChildItem -LiteralPath $publishDirectory -File)
+$executablePath = Join-Path $publishDirectory 'Mwda.Control.exe'
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
     throw "The published executable was not found at $executablePath."
+}
+if ($publishedFiles.Count -ne 1) {
+    $fileNames = ($publishedFiles | ForEach-Object Name) -join ', '
+    throw "The publish directory must contain exactly Mwda.Control.exe. Found: $fileNames"
 }
 
 Write-Output "Published executable: $executablePath"
