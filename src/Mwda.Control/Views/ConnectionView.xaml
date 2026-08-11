@@ -1,0 +1,32 @@
+<UserControl x:Class="Mwda.Control.Views.ConnectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="Connection settings view">
+    <Grid>
+        <StackPanel MaxWidth="720">
+            <TextBlock Text="Connection"
+                       Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Use Windows to connect the adapter for projection. This page reports the current control connection and does not replace Windows projection."
+                       Style="{StaticResource PageIntroStyle}" />
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Current connection" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="State" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="{Binding ConnectionState}"
+                               AutomationProperties.Name="Current control connection state" />
+                    <TextBlock Text="Adapter" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="{Binding AdapterName, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Connected adapter name" />
+                    <TextBlock Text="IP address" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="{Binding AdapterAddress, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Connected adapter IP address" />
+
+                    <Button Content="Open Windows wireless display settings"
+                            Click="OpenWirelessDisplaySettingsClick"
+                            AutomationProperties.Name="Open Windows wireless display settings" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

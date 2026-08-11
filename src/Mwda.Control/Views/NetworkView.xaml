@@ -1,0 +1,91 @@
+<UserControl x:Class="Mwda.Control.Views.NetworkView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:validation="clr-namespace:Mwda.Control.Views"
+             xmlns:behavior="clr-namespace:Mwda.Control.Views"
+             AutomationProperties.Name="Network settings view">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="720">
+            <TextBlock Text="Network"
+                       Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Connect the adapter to an available Wi-Fi network when this capability is supported."
+                       Style="{StaticResource PageIntroStyle}" />
+
+            <Border Style="{StaticResource StatusBannerStyle}"
+                    AutomationProperties.Name="Network result banner">
+                <TextBlock Text="{Binding ResultBanner}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.Name="Network operation result" />
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Wi-Fi network" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="SSID" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox IsEditable="True"
+                              IsTextSearchEnabled="False"
+                              Text="{Binding Ssid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              IsEnabled="{Binding IsVisible}"
+                              AutomationProperties.Name="Wi-Fi network name list" />
+                    <TextBlock Text="Choose or enter the network name used by the adapter."
+                               Style="{StaticResource HintTextStyle}" />
+
+                    <TextBlock Text="Network password" Style="{StaticResource FieldLabelStyle}" />
+                    <PasswordBox IsEnabled="{Binding IsVisible}"
+                                 AutomationProperties.Name="Wi-Fi network password field">
+                        <behavior:PasswordBoxBinding.Password>
+                            <Binding Path="Password"
+                                     Mode="TwoWay"
+                                     UpdateSourceTrigger="PropertyChanged"
+                                     ValidatesOnExceptions="True">
+                                <Binding.ValidationRules>
+                                    <validation:PasswordValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </behavior:PasswordBoxBinding.Password>
+                    </PasswordBox>
+
+                    <TextBlock Text="Current connection:"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="{Binding IsConnected, StringFormat={}{0}}"
+                               AutomationProperties.Name="Current Wi-Fi connection status" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Connect and save"
+                                Command="{Binding SaveCommand}"
+                                AutomationProperties.Name="Connect adapter to Wi-Fi" />
+                        <Button Content="Forget network"
+                                Command="{Binding ForgetCommand}"
+                                AutomationProperties.Name="Forget adapter Wi-Fi network" />
+                        <ProgressBar Width="90"
+                                     Height="8"
+                                     VerticalAlignment="Center"
+                                     IsIndeterminate="True"
+                                     Visibility="{Binding SaveCommand.IsExecuting, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                     AutomationProperties.Name="Saving Wi-Fi settings" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border>
+                <Border.Style>
+                    <Style TargetType="{x:Type Border}" BasedOn="{StaticResource CardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsVisible}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="Network controls unavailable"
+                               Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="This adapter did not report the optional network capability. The control remains unavailable until a supported adapter is connected."
+                               Style="{StaticResource HintTextStyle}"
+                               AutomationProperties.Name="Network capability explanation" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

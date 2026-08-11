@@ -1,0 +1,83 @@
+<UserControl x:Class="Mwda.Control.Views.AboutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="About adapter view">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="720">
+            <TextBlock Text="About"
+                       Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Read-only identity and support details reported by the connected adapter."
+                       Style="{StaticResource PageIntroStyle}" />
+
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                               Text="Adapter details"
+                               Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="0"
+                               Text="Model"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1"
+                               Text="{Binding Identity.Model, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Adapter model" />
+                    <TextBlock Grid.Row="2" Grid.Column="0"
+                               Text="Generation"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1"
+                               Text="{Binding Identity.Generation, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Adapter generation" />
+                    <TextBlock Grid.Row="3" Grid.Column="0"
+                               Text="Version"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1"
+                               Text="{Binding Identity.FirmwareVersion, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Adapter version" />
+                    <TextBlock Grid.Row="4" Grid.Column="0"
+                               Text="MAC address"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1"
+                               Text="{Binding Identity.MacAddress, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Adapter MAC address" />
+                    <TextBlock Grid.Row="5" Grid.Column="0"
+                               Text="IP address"
+                               Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Grid.Row="5" Grid.Column="1"
+                               Text="{Binding AdapterAddress, TargetNullValue=Unavailable}"
+                               AutomationProperties.Name="Adapter IP address" />
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Supported controls"
+                               Style="{StaticResource SectionTitleStyle}" />
+                    <ItemsControl ItemsSource="{Binding Capabilities.SupportedOperations}"
+                                  AutomationProperties.Name="Supported adapter controls">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="•  {Binding}"
+                                           Margin="0,2"
+                                           AutomationProperties.Name="Supported adapter control" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Support details are based on the current typed capability profile."
+                               Style="{StaticResource HintTextStyle}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

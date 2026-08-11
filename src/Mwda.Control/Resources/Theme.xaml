@@ -1,0 +1,214 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Mwda.Control.ViewModels"
+                    xmlns:views="clr-namespace:Mwda.Control.Views">
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F7F9FC" />
+    <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="NavigationBackgroundBrush" Color="#EEF2F7" />
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#D5DCE6" />
+    <SolidColorBrush x:Key="TextBrush" Color="#1F2937" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#5D6B7E" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#1D4ED8" />
+    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#FFF4D6" />
+    <SolidColorBrush x:Key="WarningBorderBrush" Color="#E7B64A" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#B42318" />
+    <SolidColorBrush x:Key="DisabledBrush" Color="#8A96A6" />
+
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+    <ControlTemplate x:Key="ValidationErrorTemplate">
+        <DockPanel LastChildFill="True">
+            <Border DockPanel.Dock="Right"
+                    Margin="4,0,0,0"
+                    Padding="5,0"
+                    Background="{DynamicResource ErrorBrush}"
+                    CornerRadius="3"
+                    ToolTip="{Binding ElementName=adorner, Path=AdornedElement.(Validation.Errors)[0].ErrorContent}">
+                <TextBlock Text="!"
+                           Foreground="White"
+                           FontWeight="Bold" />
+            </Border>
+            <AdornedElementPlaceholder x:Name="adorner" />
+        </DockPanel>
+    </ControlTemplate>
+
+    <Style x:Key="EyebrowTextStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+    </Style>
+
+    <Style x:Key="HeaderDetailTextStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style x:Key="PageTitleStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="PageIntroStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,0,0,22" />
+    </Style>
+
+    <Style x:Key="SectionTitleStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,16,0,8" />
+    </Style>
+
+    <Style x:Key="FieldLabelStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,6,0,2" />
+    </Style>
+
+    <Style x:Key="HintTextStyle" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <Style x:Key="CardStyle" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+
+    <Style x:Key="StatusBannerStyle" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="Margin" Value="0,0,0,18" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding ResultBanner}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding ResultBanner}" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ValidatedTextBoxStyle" TargetType="{x:Type TextBox}">
+        <Setter Property="Margin" Value="0,3,0,10" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ValidationErrorTemplate}" />
+    </Style>
+
+    <Style TargetType="{x:Type TextBox}">
+        <Setter Property="Margin" Value="0,3,0,10" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ValidationErrorTemplate}" />
+    </Style>
+
+    <Style TargetType="{x:Type PasswordBox}">
+        <Setter Property="Margin" Value="0,3,0,10" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ValidationErrorTemplate}" />
+    </Style>
+
+    <Style TargetType="{x:Type ComboBox}">
+        <Setter Property="Margin" Value="0,3,0,10" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="Margin" Value="0,6,0,8" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type Slider}">
+        <Setter Property="Margin" Value="0,8,0,6" />
+    </Style>
+
+    <Style TargetType="{x:Type Button}">
+        <Setter Property="Margin" Value="0,6,8,6" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource AccentDarkBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentDarkBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource DisabledBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DisabledBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <DataTemplate x:Key="AdapterPageTemplate">
+        <views:AdapterView DataContext="{Binding Page}" />
+    </DataTemplate>
+    <DataTemplate x:Key="DisplayPageTemplate">
+        <views:DisplayView DataContext="{Binding Page}" />
+    </DataTemplate>
+    <DataTemplate x:Key="NetworkPageTemplate">
+        <views:NetworkView DataContext="{Binding Page}" />
+    </DataTemplate>
+    <DataTemplate x:Key="ConnectionPageTemplate">
+        <views:ConnectionView DataContext="{Binding Page}" />
+    </DataTemplate>
+    <DataTemplate x:Key="AboutPageTemplate">
+        <views:AboutView DataContext="{Binding Page}" />
+    </DataTemplate>
+    <DataTemplate x:Key="DiagnosticsPageTemplate">
+        <views:DiagnosticsView DataContext="{Binding Page}" />
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:ConnectionViewModel}">
+        <views:DisconnectedView />
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:NavigationItem}">
+        <ContentControl Content="{Binding}">
+            <ContentControl.Style>
+                <Style TargetType="{x:Type ContentControl}">
+                    <Setter Property="ContentTemplate" Value="{StaticResource AdapterPageTemplate}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Key}" Value="Display">
+                            <Setter Property="ContentTemplate" Value="{StaticResource DisplayPageTemplate}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Key}" Value="Network">
+                            <Setter Property="ContentTemplate" Value="{StaticResource NetworkPageTemplate}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Key}" Value="Connection">
+                            <Setter Property="ContentTemplate" Value="{StaticResource ConnectionPageTemplate}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Key}" Value="About">
+                            <Setter Property="ContentTemplate" Value="{StaticResource AboutPageTemplate}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Key}" Value="Diagnostics">
+                            <Setter Property="ContentTemplate" Value="{StaticResource DiagnosticsPageTemplate}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
+        </ContentControl>
+    </DataTemplate>
+</ResourceDictionary>

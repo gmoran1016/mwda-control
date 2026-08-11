@@ -1,0 +1,106 @@
+<UserControl x:Class="Mwda.Control.Views.AdapterView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:validation="clr-namespace:Mwda.Control.Views"
+             xmlns:behavior="clr-namespace:Mwda.Control.Views"
+             AutomationProperties.Name="Adapter settings view">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="720">
+            <TextBlock Text="Adapter"
+                       Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Manage the adapter name, pairing protection, and supported language settings."
+                       Style="{StaticResource PageIntroStyle}" />
+
+            <Border Style="{StaticResource StatusBannerStyle}"
+                    AutomationProperties.Name="Adapter result banner">
+                <TextBlock Text="{Binding ResultBanner}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.Name="Adapter operation result" />
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Identity" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="Adapter name" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox AutomationProperties.Name="Adapter name field">
+                        <TextBox.Text>
+                            <Binding Path="DeviceName"
+                                     Mode="TwoWay"
+                                     UpdateSourceTrigger="PropertyChanged"
+                                     ValidatesOnExceptions="True">
+                                <Binding.ValidationRules>
+                                    <validation:DeviceNameValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
+
+                    <TextBlock Text="Pairing" Style="{StaticResource SectionTitleStyle}" />
+                    <CheckBox Content="Require pairing protection"
+                              IsChecked="{Binding PasswordProtectionEnabled, Mode=TwoWay}"
+                              IsEnabled="{Binding IsPasswordProtectionSupported}"
+                              AutomationProperties.Name="Require pairing protection" />
+                    <TextBlock Text="Pairing protection is not reported by this adapter.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPasswordProtectionSupported}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Text="Pairing password (optional)" Style="{StaticResource FieldLabelStyle}" />
+                    <PasswordBox IsEnabled="{Binding IsPasswordProtectionSupported}"
+                                 AutomationProperties.Name="Pairing password field">
+                        <behavior:PasswordBoxBinding.Password>
+                            <Binding Path="Password"
+                                     Mode="TwoWay"
+                                     UpdateSourceTrigger="PropertyChanged"
+                                     ValidatesOnExceptions="True">
+                                <Binding.ValidationRules>
+                                    <validation:PasswordValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </behavior:PasswordBoxBinding.Password>
+                    </PasswordBox>
+                    <TextBlock Text="Leave blank when you are not changing the pairing password."
+                               Style="{StaticResource HintTextStyle}" />
+
+                    <TextBlock Text="Language" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox ItemsSource="{Binding AvailableLanguageTags}"
+                              SelectedItem="{Binding SelectedLanguageTag, Mode=TwoWay}"
+                              IsEnabled="{Binding IsLanguageSupported}"
+                              AutomationProperties.Name="Adapter language selector" />
+                    <TextBlock Text="Language selection is not reported by this adapter.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLanguageSupported}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Save"
+                                Command="{Binding SaveCommand}"
+                                AutomationProperties.Name="Save adapter settings" />
+                        <ProgressBar Width="90"
+                                     Height="8"
+                                     VerticalAlignment="Center"
+                                     IsIndeterminate="True"
+                                     Visibility="{Binding SaveCommand.IsExecuting, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                     AutomationProperties.Name="Saving adapter settings" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

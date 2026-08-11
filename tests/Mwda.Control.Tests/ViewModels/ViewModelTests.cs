@@ -35,6 +35,7 @@ public sealed class ViewModelTests
         Assert.Equal(
             ["Adapter", "Display", "Network", "Connection", "About", "Diagnostics"],
             shell.NavigationItems.Select(item => item.Key));
+        Assert.DoesNotContain(shell.NavigationItems, item => item.Key == "Firmware");
         Assert.Equal(1, discovery.CallCount);
 
         shell.Adapter.DeviceName = "Room_2+(West)";
@@ -58,11 +59,32 @@ public sealed class ViewModelTests
         Assert.Equal(
             ["Adapter", "Display", "Connection", "About", "Diagnostics"],
             shell.NavigationItems.Select(item => item.Key));
+        Assert.DoesNotContain(shell.NavigationItems, item => item.Key == "Firmware");
         Assert.False(shell.Network.IsVisible);
         Assert.True(shell.Adapter.IsAvailable);
         Assert.True(shell.Display.IsAvailable);
         Assert.True(shell.ConnectionSettings.IsAvailable);
         Assert.True(shell.Diagnostics.IsAvailable);
+    }
+
+    [Fact]
+    public void WpfShellCompilesAllRequiredViews()
+    {
+        var assembly = typeof(Mwda.Control.App).Assembly;
+
+        foreach (var viewName in new[]
+                 {
+                     "DisconnectedView",
+                     "AdapterView",
+                     "DisplayView",
+                     "NetworkView",
+                     "ConnectionView",
+                     "AboutView",
+                     "DiagnosticsView",
+                 })
+        {
+            Assert.NotNull(assembly.GetType($"Mwda.Control.Views.{viewName}"));
+        }
     }
 
     [Fact]

@@ -1,0 +1,108 @@
+<UserControl x:Class="Mwda.Control.Views.DisplayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:validation="clr-namespace:Mwda.Control.Views"
+             AutomationProperties.Name="Display settings view">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="720">
+            <TextBlock Text="Display"
+                       Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Adjust the image framing and choose a supported adapter wallpaper."
+                       Style="{StaticResource PageIntroStyle}" />
+
+            <Border Style="{StaticResource StatusBannerStyle}"
+                    AutomationProperties.Name="Display result banner">
+                <TextBlock Text="{Binding ResultBanner}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.Name="Display operation result" />
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Image framing" Style="{StaticResource SectionTitleStyle}" />
+                    <CheckBox Content="Automatically adjust the image"
+                              IsChecked="{Binding IsAutoAdjust, Mode=TwoWay}"
+                              IsEnabled="{Binding IsAvailable}"
+                              AutomationProperties.Name="Automatically adjust image" />
+
+                    <TextBlock Text="Overscan value" Style="{StaticResource FieldLabelStyle}" />
+                    <Slider Minimum="0"
+                            Maximum="100"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True"
+                            Value="{Binding OverscanValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            IsEnabled="{Binding IsAvailable}"
+                            AutomationProperties.Name="Overscan slider" />
+                    <TextBox IsEnabled="{Binding IsAvailable}"
+                             AutomationProperties.Name="Overscan value field">
+                        <TextBox.Text>
+                            <Binding Path="OverscanValue"
+                                     Mode="TwoWay"
+                                     UpdateSourceTrigger="PropertyChanged"
+                                     ValidatesOnExceptions="True">
+                                <Binding.ValidationRules>
+                                    <validation:OverscanValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
+                    <TextBlock Text="Use a value from 0 to 100."
+                               Style="{StaticResource HintTextStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Wallpaper" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="Built-in wallpaper" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox ItemsSource="{Binding AvailableWallpaperIds}"
+                              SelectedItem="{Binding SelectedWallpaperId, Mode=TwoWay}"
+                              IsEnabled="{Binding IsWallpaperSupported}"
+                              AutomationProperties.Name="Built-in wallpaper selector" />
+                    <TextBlock Text="Wallpaper controls are not reported by this adapter.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWallpaperSupported}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Text="Custom image" Style="{StaticResource FieldLabelStyle}" />
+                    <Button Content="Choose image…"
+                            Click="UploadCustomWallpaperClick"
+                            IsEnabled="{Binding SupportsCustomWallpaper}"
+                            AutomationProperties.Name="Choose custom wallpaper image" />
+                    <TextBlock Text="Custom images are available only when the adapter reports support.">
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SupportsCustomWallpaper}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Save"
+                                Command="{Binding SaveCommand}"
+                                AutomationProperties.Name="Save display settings" />
+                        <ProgressBar Width="90"
+                                     Height="8"
+                                     VerticalAlignment="Center"
+                                     IsIndeterminate="True"
+                                     Visibility="{Binding SaveCommand.IsExecuting, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                     AutomationProperties.Name="Saving display settings" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
