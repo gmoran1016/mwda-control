@@ -49,6 +49,21 @@ public sealed class PublishConfigurationTests
         Assert.Contains("gh release create", workflow, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AppResourcesReferenceTheRenamedAssembly()
+    {
+        var app = ReadRepositoryFile("src", "Mwda.Control", "App.xaml");
+
+        Assert.Contains(
+            "Source=\"/MWDA-Control;component/Resources/Theme.xaml\"",
+            app,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "/Mwda.Control;component/",
+            app,
+            StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(params string[] relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
