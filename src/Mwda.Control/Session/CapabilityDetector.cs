@@ -24,6 +24,9 @@ public static class CapabilityDetector
             AdapterOperation.SetOverscan,
             AdapterOperation.GetPasswordProtection,
             AdapterOperation.SetPasswordProtection,
+            // Restart has no safe read-only probe or read-back path. The Microsoft
+            // control surface exposes it as a write-only recovery action.
+            AdapterOperation.Restart,
         };
 
         var wallpaper = await ProbeAsync(

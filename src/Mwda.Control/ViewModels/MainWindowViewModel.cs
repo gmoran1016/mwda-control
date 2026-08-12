@@ -23,14 +23,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Display = new DisplaySettingsViewModel(operationTimeout, HandleConnectionLoss);
         Network = new NetworkSettingsViewModel(operationTimeout, HandleConnectionLoss);
         ConnectionSettings = new ConnectionSettingsViewModel();
-        Diagnostics = new DiagnosticsViewModel();
-        About = new AboutViewModel(Diagnostics);
         Connection = new ConnectionViewModel(
             discovery,
             sessionFactory,
             LoadSessionAsync,
             DisconnectPages,
             operationTimeout);
+        Diagnostics = new DiagnosticsViewModel(
+            operationTimeout,
+            HandleConnectionLoss,
+            HandleAdapterRestarted);
+        About = new AboutViewModel(Diagnostics);
 
         NavigationItems = [];
         RebuildNavigation(includeNetwork: false);
@@ -103,6 +106,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Diagnostics.RecordError(exception.Message);
         Connection.HandleConnectionLoss(exception);
     }
+
+    private void HandleAdapterRestarted() => Connection.HandleAdapterRestarted();
 
     private void DisconnectPages()
     {

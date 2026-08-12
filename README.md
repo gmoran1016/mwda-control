@@ -36,6 +36,7 @@ MWDA Control probes the selected adapter and enables controls only when the adap
 - Read and change supported wallpaper settings.
 - Read and change supported adapter Wi-Fi settings, including connect and forget operations.
 - Read and change the adapter language when supported.
+- Restart / reboot the adapter from Diagnostics after two explicit confirmations; this interrupts projections but preserves adapter settings. This is not a factory reset.
 - Copy redacted diagnostics for troubleshooting.
 - Open Windows wireless-display settings for projection and reconnection.
 
@@ -53,6 +54,8 @@ If the app reports **Disconnected**, reconnect the adapter through Windows first
 ## Firmware boundary
 
 Firmware update functionality is deliberately absent. MWDA Control does not check for, download, upload, flash, or automatically install firmware. A firmware version may be shown as read-only adapter information. Use Microsoft's supported firmware process if the adapter itself requires an update.
+
+The Diagnostics page includes a separate non-firmware restart command. It sends the adapter's reboot request only after two explicit confirmations. A restart interrupts active projection but preserves the adapter's name, PIN protection, wallpaper, and other settings. Reconnect through Windows wireless-display settings and press **Refresh** after the adapter returns.
 
 ## Build from source
 
@@ -143,3 +146,7 @@ The adapter may be disconnected, still negotiating its connection, or may not ad
 **A setting does not persist**
 
 Read the diagnostic page and retry after reconnecting the adapter. Different adapter generations expose different protocol behavior; include the copied redacted diagnostics when reporting an issue.
+
+**The adapter was restarted**
+
+The app intentionally ends its old session after a restart because the adapter is temporarily offline. Reconnect it through Windows wireless-display settings, then select **Refresh** in MWDA Control.

@@ -159,6 +159,17 @@ public sealed class ConnectionViewModel : ObservableObject, IDisposable
         PublishDisconnected($"{CreateNotReachableMessage()} {exception.Message}");
     }
 
+    public void HandleAdapterRestarted()
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
+        PublishDisconnected(
+            "Restart requested. Reconnect through Windows wireless display settings, then refresh.");
+    }
+
     private void PublishDisconnected(string message)
     {
         var session = Interlocked.Exchange(ref _session, null);

@@ -76,6 +76,34 @@
 
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
+                    <TextBlock Text="Adapter recovery"
+                               Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="Restart / reboot the adapter when it needs to be recovered."
+                               Style="{StaticResource HintTextStyle}" />
+                    <TextBlock Text="This interrupts wireless display connections. It does not erase the adapter name, PIN, wallpaper, or other settings."
+                               Style="{StaticResource HintTextStyle}"
+                               AutomationProperties.Name="Restart warning" />
+                    <Button Content="Restart adapter"
+                            Click="RestartAdapterClick"
+                            IsEnabled="{Binding CanRestart}"
+                            AutomationProperties.Name="Restart adapter" />
+                    <ProgressBar Width="90"
+                                 Height="8"
+                                 VerticalAlignment="Center"
+                                 IsIndeterminate="True"
+                                 Visibility="{Binding RestartCommand.IsExecuting, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                 AutomationProperties.Name="Restarting adapter" />
+                    <Border Style="{StaticResource StatusBannerStyle}"
+                            AutomationProperties.Name="Restart status banner">
+                        <TextBlock Text="{Binding ResultBanner}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.Name="Restart operation result" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
                     <TextBlock Text="Last result"
                                Style="{StaticResource SectionTitleStyle}" />
                     <Border Style="{StaticResource StatusBannerStyle}"

@@ -12,6 +12,38 @@ public partial class DiagnosticsView : UserControl
         InitializeComponent();
     }
 
+    private async void RestartAdapterClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DiagnosticsViewModel diagnostics || !diagnostics.CanRestart)
+        {
+            return;
+        }
+
+        var adapterName = diagnostics.Identity?.DeviceName ?? "the adapter";
+        var owner = Window.GetWindow(this);
+        var firstConfirmation = ShowConfirmation(
+            owner,
+            $"Restart {adapterName}?\n\nThis will interrupt active wireless display connections. Adapter settings will be preserved.",
+            "Restart adapter",
+            MessageBoxImage.Warning);
+        if (firstConfirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var secondConfirmation = ShowConfirmation(
+            owner,
+            "Final confirmation: send the reboot command now?\n\nThe adapter will go offline briefly, and this app will require a refresh when it returns.",
+            "Confirm restart",
+            MessageBoxImage.Stop);
+        if (secondConfirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        await diagnostics.RestartCommand.ExecuteAsync();
+    }
+
     private void CopyDiagnosticsClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not DiagnosticsViewModel diagnostics)
@@ -88,4 +120,24 @@ public partial class DiagnosticsView : UserControl
 
         return "Result recorded";
     }
+
+    private static MessageBoxResult ShowConfirmation(
+        Window? owner,
+        string message,
+        string caption,
+        MessageBoxImage image) =>
+        owner is null
+            ? MessageBox.Show(
+                message,
+                caption,
+                MessageBoxButton.YesNo,
+                image,
+                MessageBoxResult.No)
+            : MessageBox.Show(
+                owner,
+                message,
+                caption,
+                MessageBoxButton.YesNo,
+                image,
+                MessageBoxResult.No);
 }

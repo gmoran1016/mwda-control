@@ -46,7 +46,7 @@ public sealed class CapabilityDetectorTests
         Assert.False(profile.Supports(AdapterOperation.ForgetWiFi));
         Assert.False(profile.Supports(AdapterOperation.GetHdcpStatus));
         Assert.False(profile.Supports(AdapterOperation.GetLanguage));
-        Assert.False(profile.Supports(AdapterOperation.Restart));
+        Assert.True(profile.Supports(AdapterOperation.Restart));
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class CapabilityDetectorTests
         Assert.True(profile.Supports(AdapterOperation.SetHdcpStatus));
         Assert.True(profile.Supports(AdapterOperation.GetLanguage));
         Assert.True(profile.Supports(AdapterOperation.SetLanguage));
-        Assert.False(profile.Supports(AdapterOperation.Restart));
+        Assert.True(profile.Supports(AdapterOperation.Restart));
     }
 
     [Fact]

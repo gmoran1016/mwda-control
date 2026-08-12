@@ -38,8 +38,9 @@ public sealed class OptionalCapabilitiesLiveTests
             _ = await advanced.GetLanguageAsync();
         }
 
-        // Restart has no read-back/restoration path, so live coverage never invokes it.
-        Assert.False(profile.Supports(AdapterOperation.Restart));
+        // Restart has no safe read-only probe or restoration path, so live coverage
+        // confirms only that the action is advertised and never invokes it.
+        Assert.True(profile.Supports(AdapterOperation.Restart));
     }
 
     [LiveAdapterFact]

@@ -72,6 +72,25 @@ public sealed class ViewModelTests
     }
 
     [Fact]
+    public async Task RestartCommandRebootsAndMarksConnectionDisconnectedAfterSuccessfulRequest()
+    {
+        var advanced = new RecordingAdvancedClient();
+        var shell = CreateShell(
+            CreateSession(
+                new RecordingClient(),
+                advanced,
+                CreateCapabilities(includeWifi: false, includeRestart: true)));
+
+        await shell.StartupRefresh;
+        await shell.Diagnostics.RestartCommand.ExecuteAsync();
+
+        Assert.Equal(1, advanced.RestartCount);
+        Assert.False(shell.Connection.IsConnected);
+        Assert.Equal("Disconnected", shell.Connection.ConnectionState);
+        Assert.Contains("Restart requested", shell.Connection.ResultBanner, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WpfShellCompilesAllRequiredViews()
     {
         var assembly = typeof(Mwda.Control.App).Assembly;
@@ -674,7 +693,7 @@ public sealed class ViewModelTests
                 AdapterOperation.SetPasswordProtection,
             });
 
-    private static CapabilityProfile CreateCapabilities(bool includeWifi)
+    private static CapabilityProfile CreateCapabilities(bool includeWifi, bool includeRestart = false)
     {
         var operations = new HashSet<AdapterOperation>(CoreCapabilities().SupportedOperations)
         {
@@ -686,6 +705,10 @@ public sealed class ViewModelTests
             operations.Add(AdapterOperation.GetWiFiSettings);
             operations.Add(AdapterOperation.SetWiFiSettings);
             operations.Add(AdapterOperation.ForgetWiFi);
+        }
+        if (includeRestart)
+        {
+            operations.Add(AdapterOperation.Restart);
         }
 
         return new CapabilityProfile(AdapterGeneration.Generation3, operations);
@@ -799,6 +822,8 @@ public sealed class ViewModelTests
     {
         public Func<WifiSettings, CancellationToken, Task>? SetWiFiSettings { get; init; }
 
+        public int RestartCount { get; private set; }
+
         public int DisposeCount { get; private set; }
 
         public Task<WallpaperInfo> GetWallpaperInfoAsync(CancellationToken cancellationToken = default) =>
@@ -843,7 +868,11 @@ public sealed class ViewModelTests
             string languageTag,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task RestartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RestartAsync(CancellationToken cancellationToken = default)
+        {
+            RestartCount++;
+            return Task.CompletedTask;
+        }
 
         public void Dispose() => DisposeCount++;
     }
