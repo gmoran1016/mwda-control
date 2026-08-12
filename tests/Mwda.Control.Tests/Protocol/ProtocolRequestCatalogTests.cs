@@ -97,6 +97,38 @@ public sealed class ProtocolRequestCatalogTests
     }
 
     [Fact]
+    public async Task LegacyCustomWallpaperRequestUsesOriginalTwoPngMultipartContract()
+    {
+        var blackTint = new byte[] { 0x01, 0x02, 0x03 };
+        var blur = new byte[] { 0x04, 0x05 };
+
+        using var request = ProtocolRequestCatalog.CreateUploadWallpaperRequest(
+            Endpoint,
+            blackTint,
+            blur);
+
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal(
+            "/cgi-bin/msupload.sh?Action=UploadWallpaper",
+            request.RequestUri!.PathAndQuery);
+        Assert.Equal("multipart/form-data", request.Content!.Headers.ContentType!.MediaType);
+
+        var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
+        var parts = multipart.ToList();
+        Assert.Equal(2, parts.Count);
+        await AssertMultipartPartAsync(
+            parts[0],
+            "WallpaperBlackTint",
+            "WallpaperBlackTint.png",
+            blackTint);
+        await AssertMultipartPartAsync(
+            parts[1],
+            "WallpaperBlur",
+            "WallpaperBlur.png",
+            blur);
+    }
+
+    [Fact]
     public void WriteEncoderCandidateSetIsClosedAndOrdered()
     {
         Assert.Equal(
@@ -158,4 +190,17 @@ public sealed class ProtocolRequestCatalogTests
     };
 
     private static string? GetMediaType(MediaTypeHeaderValue? contentType) => contentType?.MediaType;
+
+    private static async Task AssertMultipartPartAsync(
+        HttpContent part,
+        string expectedName,
+        string expectedFileName,
+        byte[] expectedBytes)
+    {
+        Assert.Equal("image/png", part.Headers.ContentType!.MediaType);
+        Assert.Equal(expectedName, part.Headers.ContentDisposition!.Name);
+        Assert.Equal(expectedFileName, part.Headers.ContentDisposition.FileName);
+        Assert.Contains("binary", part.Headers.ContentEncoding);
+        Assert.Equal(expectedBytes, await part.ReadAsByteArrayAsync());
+    }
 }

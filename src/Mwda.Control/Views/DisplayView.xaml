@@ -93,7 +93,7 @@
                             Click="UploadCustomWallpaperClick"
                             IsEnabled="{Binding SupportsCustomWallpaper}"
                             AutomationProperties.Name="Choose custom wallpaper image" />
-                    <TextBlock Text="Custom images are available only when the adapter reports support.">
+                    <TextBlock Text="This adapter does not report custom wallpaper support.">
                         <TextBlock.Style>
                             <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource HintTextStyle}">
                                 <Setter Property="Visibility" Value="Collapsed" />

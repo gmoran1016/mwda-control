@@ -6,6 +6,7 @@ using Mwda.Control.Discovery;
 using Mwda.Control.Mvvm;
 using Mwda.Control.Protocol;
 using Mwda.Control.Session;
+using Mwda.Control.Versioning;
 using Mwda.Control.ViewModels;
 using Mwda.Control.Views;
 
@@ -211,6 +212,16 @@ public sealed class ViewModelTests
             "Text=\"{Binding LastError, Mode=OneWay, TargetNullValue=No local errors recorded}\"",
             diagnosticsView);
         Assert.Contains("<Border Style=\"{StaticResource StatusBannerStyle}\"", diagnosticsView);
+        Assert.Contains("Text=\"{Binding ApplicationVersion}\"", aboutView);
+        Assert.DoesNotContain("1.0.", aboutView, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AboutViewModelExposesTheAssemblySourcedApplicationVersion()
+    {
+        var viewModel = new AboutViewModel(new DiagnosticsViewModel());
+
+        Assert.Equal(ApplicationVersion.Current, viewModel.ApplicationVersion);
     }
 
     [Fact]

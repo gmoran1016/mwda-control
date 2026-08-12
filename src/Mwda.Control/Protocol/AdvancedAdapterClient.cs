@@ -19,6 +19,7 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
 
     private readonly AdapterEndpoint _endpoint;
     private readonly AdapterHttpTransport _transport;
+    private readonly WallpaperImagePreparer _wallpaperImagePreparer;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private WallpaperProtocolVariant _wallpaperProtocolVariant = WallpaperProtocolVariant.Modern;
 
@@ -46,6 +47,7 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         ArgumentNullException.ThrowIfNull(transport);
         _endpoint = endpoint;
         _transport = transport;
+        _wallpaperImagePreparer = new WallpaperImagePreparer();
     }
 
     public async Task<WallpaperInfo> GetWallpaperInfoAsync(
@@ -102,21 +104,45 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
             cancellationToken);
     }
 
-    public Task UploadCustomWallpaperAsync(
+    public async Task UploadCustomWallpaperAsync(
         Stream image,
         string fileName,
         string contentType,
-        CancellationToken cancellationToken = default) =>
-        ExecuteWriteAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        var verifyLegacyReadBack = _wallpaperProtocolVariant == WallpaperProtocolVariant.LegacyGeneration2;
+        await ExecuteWriteAsync(
             AdapterOperation.SetWallpaper,
-            token => ProtocolRequestCatalog.CreateUploadWallpaperRequestAsync(
-                _endpoint,
-                image,
-                fileName,
-                contentType,
-                token),
-            verifyReadBack: null,
-            cancellationToken);
+            async token =>
+            {
+                var prepared = await _wallpaperImagePreparer.PrepareAsync(
+                    image,
+                    fileName,
+                    contentType,
+                    token);
+                return ProtocolRequestCatalog.CreateUploadWallpaperRequest(
+                    _endpoint,
+                    prepared.BlackTint,
+                    prepared.Blur);
+            },
+            verifyReadBack: verifyLegacyReadBack
+                ? async token =>
+                {
+                    var readBack = await GetWallpaperInfoAsync(token);
+                    if (!string.Equals(readBack.CurrentWallpaperId, "0", StringComparison.Ordinal))
+                    {
+                        throw ProtocolFailure(
+                            AdapterOperation.SetWallpaper,
+                            HttpStatusCode.OK,
+                            "The custom wallpaper read-back did not report wallpaper identifier 0.");
+                    }
+                }
+                : null,
+            cancellationToken,
+            isCustomWallpaperUpload: true);
+    }
 
     public Task<WifiSettings> GetWiFiSettingsAsync(CancellationToken cancellationToken = default) =>
         ReadAsync(
@@ -269,7 +295,8 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         AdapterOperation operation,
         Func<CancellationToken, Task<HttpRequestMessage>> createRequest,
         Func<CancellationToken, Task>? verifyReadBack,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool isCustomWallpaperUpload = false)
     {
         await _writeLock.WaitAsync(cancellationToken);
         try
@@ -277,7 +304,7 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
             using var request = await createRequest(cancellationToken);
             var response = await _transport.SendAsync(request, cancellationToken);
             EnsureSuccess(operation, response);
-            ValidateWriteResponse(operation, response);
+            ValidateWriteResponse(operation, response, isCustomWallpaperUpload);
             if (verifyReadBack is not null)
             {
                 await verifyReadBack(cancellationToken);
@@ -331,7 +358,7 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         return new WallpaperInfo(
             currentWallpaperId,
             LegacyWallpaperIds,
-            SupportsCustomWallpaper: false,
+            SupportsCustomWallpaper: true,
             WallpaperProtocolVariant.LegacyGeneration2);
     }
 
@@ -409,7 +436,10 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
         }
     }
 
-    private static void ValidateWriteResponse(AdapterOperation operation, AdapterHttpResponse response)
+    private static void ValidateWriteResponse(
+        AdapterOperation operation,
+        AdapterHttpResponse response,
+        bool isCustomWallpaperUpload)
     {
         try
         {
@@ -421,6 +451,36 @@ public sealed class AdvancedAdapterClient : IAdvancedWirelessDisplayAdapterClien
                     response.StatusCode,
                     response.Body,
                     "The successful write response was not a JSON object.");
+            }
+
+            if (document.RootElement.TryGetProperty("ErrorCode", out var errorCode))
+            {
+                if (!errorCode.TryGetInt32(out var numericErrorCode))
+                {
+                    throw ProtocolFailure(
+                        operation,
+                        response.StatusCode,
+                        response.Body,
+                        "The successful write response contained an invalid ErrorCode.");
+                }
+
+                if (numericErrorCode != 0)
+                {
+                    if (isCustomWallpaperUpload && numericErrorCode == -8)
+                    {
+                        throw UnsupportedFailure(
+                            operation,
+                            response.StatusCode,
+                            response.Body,
+                            "Custom wallpaper requires WDA2 firmware 2.0.8442 or newer.");
+                    }
+
+                    throw ProtocolFailure(
+                        operation,
+                        response.StatusCode,
+                        response.Body,
+                        $"The adapter returned error code {numericErrorCode}.");
+                }
             }
         }
         catch (JsonException exception)

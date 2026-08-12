@@ -10,6 +10,9 @@ public sealed class AdvancedAdapterClientTests
     private static readonly AdapterEndpoint Endpoint =
         new(new Uri("http://192.168.137.247/"));
 
+    private static readonly byte[] ValidPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
     [Fact]
     public async Task WallpaperFixtureReturnsTypedInfoFromObservedActionAndSchema()
     {
@@ -53,7 +56,7 @@ public sealed class AdvancedAdapterClientTests
 
         Assert.Equal("0", result.CurrentWallpaperId);
         Assert.Equal(new[] { "0", "1", "2", "3", "4" }, result.AvailableWallpaperIds);
-        Assert.False(result.SupportsCustomWallpaper);
+        Assert.True(result.SupportsCustomWallpaper);
     }
 
     [Fact]
@@ -133,10 +136,10 @@ public sealed class AdvancedAdapterClientTests
     }
 
     [Fact]
-    public async Task LegacyPredefinedWallpaperWriteUsesDisplayWallpaperAction()
+    public async Task LegacyPredefinedWallpaperWriteUsesPredefinedWallpaperQueryAction()
     {
         var requestNumber = 0;
-        using var handler = new StubHttpMessageHandler(async request =>
+        using var handler = new StubHttpMessageHandler(request =>
         {
             requestNumber++;
             if (requestNumber is 1 or 3)
@@ -148,8 +151,11 @@ public sealed class AdvancedAdapterClientTests
                         : "{\"WallpaperID\":2}");
             }
 
-            AssertRequest(request, HttpMethod.Post, "SetDisplayWallpaper", "application/json");
-            Assert.Equal("{\"WallpaperID\":\"2\"}", await request.Content!.ReadAsStringAsync());
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                "/cgi-bin/msupload.sh?Action=SetPredefinedWallpaper&WallpaperID=2",
+                request.RequestUri!.PathAndQuery);
+            Assert.Null(request.Content);
             return JsonResponse("{}");
         });
         using var client = CreateClient(handler);
@@ -161,26 +167,58 @@ public sealed class AdvancedAdapterClientTests
     }
 
     [Fact]
-    public async Task CustomWallpaperUsesBoundedMultipartWithAllowListedImageType()
+    public async Task CustomWallpaperUsesOriginalTwoPartMultipartAndVerifiesCustomReadBack()
     {
-        var imageBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        var requestNumber = 0;
         using var handler = new StubHttpMessageHandler(async request =>
         {
-            AssertRequest(request, HttpMethod.Post, "UploadWallpaper", "multipart/form-data");
-            var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
-            var part = Assert.Single(multipart);
-            Assert.Equal("image/png", part.Headers.ContentType!.MediaType);
-            Assert.Equal("wallpaper", part.Headers.ContentDisposition!.Name);
-            Assert.Equal("custom.png", part.Headers.ContentDisposition.FileName);
-            Assert.Equal(imageBytes, await part.ReadAsByteArrayAsync());
-            return JsonResponse("{}");
+            requestNumber++;
+            if (requestNumber == 1)
+            {
+                AssertRequest(request, HttpMethod.Get, "GetWallpaperID", contentType: null);
+                return JsonResponse("{\"WallpaperID\":1}");
+            }
+
+            if (requestNumber == 2)
+            {
+                AssertRequest(request, HttpMethod.Post, "UploadWallpaper", "multipart/form-data");
+                var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
+                var parts = multipart.ToList();
+                Assert.Equal(2, parts.Count);
+                await AssertPreparedPartAsync(parts[0], "WallpaperBlackTint");
+                await AssertPreparedPartAsync(parts[1], "WallpaperBlur");
+                return JsonResponse("{\"ErrorCode\":0}");
+            }
+
+            AssertRequest(request, HttpMethod.Get, "GetWallpaperID", contentType: null);
+            return JsonResponse("{\"WallpaperID\":0}");
         });
         using var client = CreateClient(handler);
 
+        await client.GetWallpaperInfoAsync();
         await client.UploadCustomWallpaperAsync(
-            new MemoryStream(imageBytes),
+            new MemoryStream(ValidPng),
             "custom.png",
             "image/png");
+
+        Assert.Equal(3, requestNumber);
+    }
+
+    [Fact]
+    public async Task CustomWallpaperErrorMinusEightExplainsTheFirmwareRequirement()
+    {
+        using var handler = new StubHttpMessageHandler(_ =>
+            JsonResponse("{\"ErrorCode\":-8}"));
+        using var client = CreateClient(handler);
+
+        var exception = await Assert.ThrowsAsync<UnsupportedAdapterOperationException>(
+            () => client.UploadCustomWallpaperAsync(
+                new MemoryStream(ValidPng),
+                "custom.png",
+                "image/png"));
+
+        Assert.Equal(AdapterOperation.SetWallpaper, exception.Operation);
+        Assert.Contains("2.0.8442", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -358,24 +396,28 @@ public sealed class AdvancedAdapterClientTests
     }
 
     [Fact]
-    public async Task CustomWallpaperAcceptsPayloadAtExactFourMebibyteBoundary()
+    public async Task CustomWallpaperAcceptsAValidSourceImageWithinTheSizeBoundary()
     {
-        var imageBytes = new byte[4_194_304];
-        imageBytes[0] = 0xFF;
-        imageBytes[1] = 0xD8;
-        imageBytes[2] = 0xFF;
+        var requestNumber = 0;
         using var handler = new StubHttpMessageHandler(request =>
         {
-            var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
-            Assert.Equal(4_194_304, Assert.Single(multipart).Headers.ContentLength);
-            return JsonResponse("{}");
+            requestNumber++;
+            return requestNumber switch
+            {
+                1 => JsonResponse("{\"WallpaperID\":1}"),
+                2 => JsonResponse("{\"ErrorCode\":0}"),
+                _ => JsonResponse("{\"WallpaperID\":0}"),
+            };
         });
         using var client = CreateClient(handler);
 
+        await client.GetWallpaperInfoAsync();
         await client.UploadCustomWallpaperAsync(
-            new MemoryStream(imageBytes),
-            "custom.jpg",
-            "image/jpeg");
+            new MemoryStream(ValidPng),
+            "custom.png",
+            "image/png");
+
+        Assert.Equal(3, requestNumber);
     }
 
     [Fact]
@@ -429,6 +471,17 @@ public sealed class AdvancedAdapterClientTests
     }
 
     private static string? GetMediaType(MediaTypeHeaderValue? contentType) => contentType?.MediaType;
+
+    private static async Task AssertPreparedPartAsync(HttpContent part, string expectedName)
+    {
+        Assert.Equal("image/png", part.Headers.ContentType!.MediaType);
+        Assert.Equal(expectedName, part.Headers.ContentDisposition!.Name);
+        Assert.Equal($"{expectedName}.png", part.Headers.ContentDisposition.FileName);
+        Assert.Contains("binary", part.Headers.ContentEncoding);
+        var bytes = await part.ReadAsByteArrayAsync();
+        Assert.True(bytes.AsSpan().StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
+        Assert.NotEmpty(bytes);
+    }
 
     private static HttpResponseMessage JsonResponse(string body) =>
         new(HttpStatusCode.OK)

@@ -23,6 +23,8 @@ public sealed class AboutViewModel : ObservableObject
 
     public string? AdapterAddress => _diagnostics.AdapterAddress;
 
+    public string ApplicationVersion => global::Mwda.Control.Versioning.ApplicationVersion.Current;
+
     private void DiagnosticsPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName is nameof(DiagnosticsViewModel.IsAvailable)

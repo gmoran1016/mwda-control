@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -20,14 +19,6 @@ public static class ProtocolRequestCatalog
     private const string ControlPath = "/cgi-bin/msupload.sh";
 
     public const int MaximumWallpaperBytes = 4_194_304;
-
-    private static readonly IReadOnlyDictionary<string, string> WallpaperContentTypes =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            [".jpg"] = "image/jpeg",
-            [".jpeg"] = "image/jpeg",
-            [".png"] = "image/png",
-        };
 
     private static readonly IReadOnlyList<ProtocolWriteEncoding> CandidateEncodings =
         Array.AsReadOnly(
@@ -125,13 +116,22 @@ public static class ProtocolRequestCatalog
     public static HttpRequestMessage CreateSetPredefinedWallpaperRequest(
         AdapterEndpoint endpoint,
         string wallpaperId,
-        WallpaperProtocolVariant protocolVariant = WallpaperProtocolVariant.Modern) =>
-        CreateOptionalJsonWriteRequest(
+        WallpaperProtocolVariant protocolVariant = WallpaperProtocolVariant.Modern)
+    {
+        if (protocolVariant == WallpaperProtocolVariant.LegacyGeneration2)
+        {
+            return CreateRequest(
+                endpoint,
+                "SetPredefinedWallpaper",
+                new[] { Field("WallpaperID", wallpaperId) },
+                ProtocolWriteEncoding.QueryParameters);
+        }
+
+        return CreateOptionalJsonWriteRequest(
             endpoint,
-            protocolVariant == WallpaperProtocolVariant.LegacyGeneration2
-                ? "SetDisplayWallpaper"
-                : "SetPredefinedWallpaper",
+            "SetPredefinedWallpaper",
             new[] { Field("WallpaperID", wallpaperId) });
+    }
 
     public static HttpRequestMessage CreateSetWiFiSettingsRequest(
         AdapterEndpoint endpoint,
@@ -173,34 +173,17 @@ public static class ProtocolRequestCatalog
             "Restart",
             Array.Empty<KeyValuePair<string, object>>());
 
-    public static async Task<HttpRequestMessage> CreateUploadWallpaperRequestAsync(
+    public static HttpRequestMessage CreateUploadWallpaperRequest(
         AdapterEndpoint endpoint,
-        Stream image,
-        string fileName,
-        string contentType,
-        CancellationToken cancellationToken = default)
+        byte[] blackTint,
+        byte[] blur)
     {
-        ArgumentNullException.ThrowIfNull(image);
-        ValidateWallpaperFile(fileName, contentType);
-        if (!image.CanRead)
-        {
-            throw new ArgumentException("The wallpaper stream must be readable.", nameof(image));
-        }
-
-        if (image.CanSeek && image.Length - image.Position > MaximumWallpaperBytes)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(image),
-                "The wallpaper exceeds the four-mebibyte upload limit.");
-        }
-
-        var bytes = await ReadBoundedAsync(image, cancellationToken);
-        ValidateWallpaperSignature(bytes, contentType);
-        var content = new ByteArrayContent(bytes);
-        content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        ArgumentNullException.ThrowIfNull(blackTint);
+        ArgumentNullException.ThrowIfNull(blur);
 
         var multipart = new MultipartFormDataContent();
-        multipart.Add(content, "wallpaper", fileName);
+        multipart.Add(CreateWallpaperPart(blackTint), "WallpaperBlackTint", "WallpaperBlackTint.png");
+        multipart.Add(CreateWallpaperPart(blur), "WallpaperBlur", "WallpaperBlur.png");
 
         ValidateEndpoint(endpoint);
         return new HttpRequestMessage(
@@ -315,67 +298,12 @@ public static class ProtocolRequestCatalog
         return JsonSerializer.Serialize(values, JsonOptions);
     }
 
-    private static async Task<byte[]> ReadBoundedAsync(
-        Stream image,
-        CancellationToken cancellationToken)
+    private static ByteArrayContent CreateWallpaperPart(byte[] bytes)
     {
-        using var output = new MemoryStream();
-        var buffer = new byte[81_920];
-        while (true)
-        {
-            var remaining = MaximumWallpaperBytes - checked((int)output.Length);
-            var read = await image.ReadAsync(
-                buffer.AsMemory(0, Math.Min(buffer.Length, remaining + 1)),
-                cancellationToken);
-            if (read == 0)
-            {
-                return output.ToArray();
-            }
-
-            if (read > remaining)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(image),
-                    "The wallpaper exceeds the four-mebibyte upload limit.");
-            }
-
-            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-        }
-    }
-
-    private static void ValidateWallpaperFile(string fileName, string contentType)
-    {
-        if (string.IsNullOrWhiteSpace(fileName) ||
-            !string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
-        {
-            throw new ArgumentException("The wallpaper file name must be a safe leaf name.", nameof(fileName));
-        }
-
-        var extension = Path.GetExtension(fileName);
-        if (!WallpaperContentTypes.TryGetValue(extension, out var expectedContentType))
-        {
-            throw new ArgumentException("The wallpaper extension is not allow-listed.", nameof(fileName));
-        }
-
-        if (!string.Equals(contentType, expectedContentType, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException(
-                "The wallpaper content type does not match its allow-listed extension.",
-                nameof(contentType));
-        }
-    }
-
-    private static void ValidateWallpaperSignature(byte[] bytes, string contentType)
-    {
-        var hasExpectedSignature = contentType.Equals("image/png", StringComparison.OrdinalIgnoreCase)
-            ? bytes.AsSpan().StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })
-            : bytes.AsSpan().StartsWith(new byte[] { 0xFF, 0xD8, 0xFF });
-        if (!hasExpectedSignature)
-        {
-            throw new ArgumentException(
-                "The wallpaper content does not match its allow-listed image type.",
-                nameof(bytes));
-        }
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse("image/png");
+        content.Headers.ContentEncoding.Add("binary");
+        return content;
     }
 
     private static string FormatValue(object value) => value switch

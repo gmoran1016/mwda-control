@@ -8,6 +8,15 @@
                        Style="{StaticResource PageTitleStyle}" />
             <TextBlock Text="Read-only identity and support details reported by the connected adapter."
                        Style="{StaticResource PageIntroStyle}" />
+            <StackPanel Orientation="Horizontal"
+                        Margin="0,0,0,12">
+                <TextBlock Text="Application version"
+                           Style="{StaticResource HintTextStyle}"
+                           Margin="0,0,8,0" />
+                <TextBlock Text="{Binding ApplicationVersion}"
+                           Style="{StaticResource HintTextStyle}"
+                           AutomationProperties.Name="Application version" />
+            </StackPanel>
 
             <Border Style="{StaticResource CardStyle}">
                 <Grid>
