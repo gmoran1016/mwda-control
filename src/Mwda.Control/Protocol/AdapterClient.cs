@@ -274,7 +274,8 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
                 contextOperation,
                 ProtocolJson.ParsePasswordProtection,
                 cancellationToken,
-                () => ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation));
+                () => ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation),
+                treatMalformedResponseAsUnsupported: true);
             _passwordProtectionProtocolVariant = PasswordProtectionProtocolVariant.Modern;
             return modern;
         }
@@ -296,7 +297,8 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
         AdapterOperation contextOperation,
         Func<string, T> parse,
         CancellationToken cancellationToken,
-        Func<HttpRequestMessage>? createRequest = null)
+        Func<HttpRequestMessage>? createRequest = null,
+        bool treatMalformedResponseAsUnsupported = false)
     {
         using var request = createRequest is null
             ? ProtocolRequestCatalog.CreateReadRequest(_endpoint, readOperation)
@@ -310,12 +312,22 @@ public sealed class AdapterClient : IWirelessDisplayAdapterClient, IDisposable
         }
         catch (AdapterProtocolException exception)
         {
-            throw ProtocolFailure(
+            var failure = ProtocolFailure(
                 contextOperation,
                 response.StatusCode,
                 response.Body,
                 "The response shape was malformed.",
                 exception);
+            if (treatMalformedResponseAsUnsupported)
+            {
+                throw new UnsupportedAdapterOperationException(
+                    contextOperation,
+                    response.StatusCode,
+                    failure.Message,
+                    failure);
+            }
+
+            throw failure;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

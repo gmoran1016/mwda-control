@@ -163,6 +163,33 @@ public sealed class AdapterClientTests
     }
 
     [Fact]
+    public async Task PasswordProtectionFallsBackToLegacyRouteWhenModernModeIsUnknown()
+    {
+        var requests = new List<string>();
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.Query.Contains("GetPBCMode", StringComparison.Ordinal)
+                ? JsonResponse("{\"PBCModeStatus\":\"Auto\"}")
+                : request.RequestUri.Query.Contains("GetPasswordProtectState", StringComparison.Ordinal)
+                    ? JsonResponse("{\"PasswordProtect\":false}")
+                    : throw new InvalidOperationException("Unexpected request.");
+        });
+        using var client = CreateClient(handler);
+
+        var settings = await client.GetPasswordProtectionAsync();
+
+        Assert.False(settings.Enabled);
+        Assert.Equal(
+            new[]
+            {
+                "/cgi-bin/msupload.sh?Action=GetPBCMode",
+                "/cgi-bin/msupload.sh?Action=GetPasswordProtectState",
+            },
+            requests);
+    }
+
+    [Fact]
     public async Task LegacyPasswordProtectionWriteUsesLegacyRouteAfterNegotiation()
     {
         var requests = new List<string>();
