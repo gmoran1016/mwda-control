@@ -161,7 +161,7 @@ With the currently connected adapter environment configured, run the live integr
 
 - [x] **Step 3: Publish and verify the single executable**
 
-Run `& .\publish.ps1`, require exactly `artifacts\publish\win-x64\Mwda.Control.exe`, launch that exact file briefly, and record its SHA-256 and file metadata. If the local script selects a broken system SDK, run the same publish arguments with the pinned repository SDK and an isolated `artifacts\publish\manual-v1.0.9` output directory. Confirm no extra files are present in the verified output directory.
+Run `& .\publish.ps1`, require exactly `artifacts\publish\win-x64\MWDA-Control.exe`, launch that exact file briefly, and record its SHA-256 and file metadata. If the local script selects a broken system SDK, run the same publish arguments with the pinned repository SDK and an isolated `artifacts\publish\manual-v1.0.9` output directory. Confirm no extra files are present in the verified output directory.
 
 - [x] **Step 4: Review the diff and release notes**
 
@@ -179,4 +179,4 @@ The commit contains the `1.0.9` version bump so the GitHub-bound commit and rele
 
 - [ ] **Step 6: Push and create the v1.0.9 release**
 
-Push `master`, push annotated tag `v1.0.9`, wait for the tag workflow to pass, and verify the GitHub release contains exactly one downloadable `Mwda.Control.exe` asset. Report the release URL and SHA-256.
+Push `master`, push annotated tag `v1.0.9`, wait for the tag workflow to pass, and verify the GitHub release contains exactly one downloadable `MWDA-Control.exe` asset. Report the release URL and SHA-256.

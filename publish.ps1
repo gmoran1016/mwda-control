@@ -39,13 +39,13 @@ if ($publishExitCode -ne 0) {
 }
 
 $publishedFiles = @(Get-ChildItem -LiteralPath $publishDirectory -File)
-$executablePath = Join-Path $publishDirectory 'Mwda.Control.exe'
+$executablePath = Join-Path $publishDirectory 'MWDA-Control.exe'
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
     throw "The published executable was not found at $executablePath."
 }
 if ($publishedFiles.Count -ne 1) {
     $fileNames = ($publishedFiles | ForEach-Object Name) -join ', '
-    throw "The publish directory must contain exactly Mwda.Control.exe. Found: $fileNames"
+    throw "The publish directory must contain exactly MWDA-Control.exe. Found: $fileNames"
 }
 
 Write-Output "Published executable: $executablePath"

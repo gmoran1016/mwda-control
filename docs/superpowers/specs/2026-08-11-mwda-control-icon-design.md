@@ -36,7 +36,7 @@ Update `src/Mwda.Control/Mwda.Control.csproj` with `ApplicationIcon` pointing to
 2. Run the existing non-live test suite.
 3. Build Release.
 4. Publish the self-contained Windows x64 executable.
-5. Confirm the publish directory still contains exactly `Mwda.Control.exe`.
+5. Confirm the publish directory still contains exactly `MWDA-Control.exe`.
 6. Confirm the built executable exposes an associated icon using Windows icon extraction.
 7. Push the change and rely on the existing tag workflow to repeat the same publish verification on GitHub Actions.
 

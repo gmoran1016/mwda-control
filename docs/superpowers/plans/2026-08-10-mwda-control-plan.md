@@ -609,7 +609,7 @@ git commit -m "feat: add adapter control WPF interface"
 
 **Interfaces:**
 - DiagnosticFormatter.Format(DiagnosticSnapshot) returns redacted text containing endpoint, connection state, capabilities, and recent operation status without passwords/PINs.
-- publish.ps1 produces artifacts/publish/win-x64/Mwda.Control.exe using the exact publish properties below.
+- publish.ps1 produces artifacts/publish/win-x64/MWDA-Control.exe using the exact publish properties below.
 
 - [ ] **Step 1: Write failing diagnostics tests**
 
@@ -645,7 +645,7 @@ The script must fail on a nonzero publish exit code and print the final executab
 ~~~powershell
 dotnet test .\MWDA.Control.sln --configuration Release --filter "Category!=LiveAdapter"
 .\publish.ps1
-Test-Path .\artifacts\publish\win-x64\Mwda.Control.exe
+Test-Path .\artifacts\publish\win-x64\MWDA-Control.exe
 ~~~
 
 Expected: all unit tests pass and the self-contained executable exists.

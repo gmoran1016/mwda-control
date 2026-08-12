@@ -35,7 +35,7 @@ jobs:
 
   publish:
     name: Publish Windows executable
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: test
     runs-on: windows-latest
     permissions:
@@ -73,16 +73,16 @@ jobs:
         run: |
           $publishDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts\publish\win-x64'
           $files = @(Get-ChildItem -LiteralPath $publishDir -File)
-          if ($files.Count -ne 1 -or $files[0].Name -ne 'Mwda.Control.exe') {
+          if ($files.Count -ne 1 -or $files[0].Name -ne 'MWDA-Control.exe') {
             $files | Select-Object Name, Length | Format-Table
-            throw 'The publish directory must contain exactly Mwda.Control.exe.'
+            throw 'The publish directory must contain exactly MWDA-Control.exe.'
           }
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: Mwda-Control-windows-x64
-          path: artifacts/publish/win-x64/Mwda.Control.exe
+          path: artifacts/publish/win-x64/MWDA-Control.exe
           if-no-files-found: error
 
       - name: Create GitHub release
@@ -90,4 +90,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" ".\artifacts\publish\win-x64\Mwda.Control.exe" --repo "$env:GITHUB_REPOSITORY" --title "MWDA Control $env:GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$env:GITHUB_REF_NAME" ".\artifacts\publish\win-x64\MWDA-Control.exe" --repo "$env:GITHUB_REPOSITORY" --title "MWDA Control $env:GITHUB_REF_NAME" --generate-notes

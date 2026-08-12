@@ -10,7 +10,7 @@ Firmware updates are intentionally not supported.
 
 Download the latest self-contained executable from the [latest GitHub release](https://github.com/gmoran1016/mwda-control/releases/latest):
 
-1. Download `Mwda.Control.exe`.
+1. Download `MWDA-Control.exe`.
 2. Save it somewhere convenient, such as `Downloads` or a tools folder.
 3. Run it on Windows 10 or Windows 11 x64.
 
@@ -45,7 +45,7 @@ The exact controls depend on the adapter generation and the capabilities it expo
 ## Connect an adapter
 
 1. Open Windows' wireless-display/Connect settings and connect to the Microsoft Wireless Display Adapter.
-2. Start `Mwda.Control.exe`.
+2. Start `MWDA-Control.exe`.
 3. Select the discovered adapter and choose **Refresh** if it was connected after the app opened.
 4. Make configuration changes from the available pages and save them individually.
 
@@ -100,19 +100,19 @@ Run the included publish script:
 The output is:
 
 ```text
-artifacts\publish\win-x64\Mwda.Control.exe
+artifacts\publish\win-x64\MWDA-Control.exe
 ```
 
-The script publishes a self-contained Windows x64 executable with native libraries bundled and debug symbols removed. The output directory is expected to contain only `Mwda.Control.exe`.
+The script publishes a self-contained Windows x64 executable with native libraries bundled and debug symbols removed. The output directory is expected to contain only `MWDA-Control.exe`.
 
 ## GitHub Actions releases
 
 The workflow in `.github/workflows/release.yml`:
 
 - Runs restore and the non-live test suite on pushes to `master`, pull requests, and manual runs.
-- Builds a self-contained single executable on a manual workflow run.
+- Builds a self-contained single executable on pushes to `master`, manual workflow runs, and version-tag pushes.
 - Builds the same executable and attaches it to a GitHub Release when a `v*` tag is pushed.
-- Verifies that the publish directory contains exactly one file: `Mwda.Control.exe`.
+- Verifies that the publish directory contains exactly one file: `MWDA-Control.exe`.
 
 To publish a release from a checked-out repository with GitHub CLI:
 

@@ -190,7 +190,7 @@ Publish current HEAD into `<evidence>\publish\win-x64` using the same effective 
 
 Verify and record:
 
-- Exactly one file exists and it is `Mwda.Control.exe`.
+- Exactly one file exists and it is `MWDA-Control.exe`.
 - SHA-256, size, PE architecture, file/product version, icon, timestamp, and audit source SHA.
 - The executable was produced by this run from isolated HEAD, not copied from old artifacts.
 - It launches as a standard user without elevation, closes normally, and leaves no child process.

@@ -71,11 +71,11 @@ Confirm only icon metadata and the new asset resource are added; do not alter ta
 ### Task 3: Verify the executable icon
 
 **Files:**
-- Verify: `publish.ps1`, `src/Mwda.Control/Mwda.Control.csproj`, `artifacts/publish/win-x64/Mwda.Control.exe`
+- Verify: `publish.ps1`, `src/Mwda.Control/Mwda.Control.csproj`, `artifacts/publish/win-x64/MWDA-Control.exe`
 
 **Interfaces:**
 - The existing publish script remains the source of truth for local single-file output.
-- The final publish directory contains exactly `Mwda.Control.exe`.
+- The final publish directory contains exactly `MWDA-Control.exe`.
 - Windows icon extraction returns an associated icon from the published executable.
 
 - [x] **Step 1: Run the existing test suite**
@@ -88,7 +88,7 @@ Run `publish.ps1` and require the existing one-file output check to pass.
 
 - [x] **Step 3: Verify the embedded icon**
 
-Use Windows icon extraction against `artifacts\\publish\\win-x64\\Mwda.Control.exe` and confirm a non-null icon with a non-zero frame size.
+Use Windows icon extraction against `artifacts\\publish\\win-x64\\MWDA-Control.exe` and confirm a non-null icon with a non-zero frame size.
 
 - [x] **Step 4: Review the final diff**
 
@@ -103,7 +103,7 @@ Run `git diff --check`, inspect the staged paths, and confirm no unrelated files
 
 **Interfaces:**
 - The existing `.github/workflows/release.yml` builds tags matching `v*`.
-- A new version tag after the icon commit produces a release containing `Mwda.Control.exe`.
+- A new version tag after the icon commit produces a release containing `MWDA-Control.exe`.
 
 - [x] **Step 1: Commit the focused change**
 
@@ -119,4 +119,4 @@ Create and push the next patch tag, `v1.0.3`, so GitHub Actions builds the icon-
 
 - [x] **Step 4: Verify the GitHub release**
 
-Require the tagged workflow to pass its tests, single-file check, artifact upload, and release creation. Confirm the release asset is named `Mwda.Control.exe`.
+Require the tagged workflow to pass its tests, single-file check, artifact upload, and release creation. Confirm the release asset is named `MWDA-Control.exe`.
