@@ -34,6 +34,21 @@ public sealed class PublishConfigurationTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void VersionChangesTriggerReleaseCreation()
+    {
+        var workflow = ReadRepositoryFile(".github", "workflows", "release.yml");
+
+        Assert.Contains("name: Detect version change", workflow, StringComparison.Ordinal);
+        Assert.Contains("VersionPrefix", workflow, StringComparison.Ordinal);
+        Assert.Contains("needs: [test, version]", workflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "needs.version.outputs.should_release == 'true'",
+            workflow,
+            StringComparison.Ordinal);
+        Assert.Contains("gh release create", workflow, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(params string[] relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

@@ -13,6 +13,75 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    name: Detect version change
+    runs-on: windows-latest
+    outputs:
+      current: ${{ steps.version.outputs.current }}
+      changed: ${{ steps.version.outputs.changed }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+      should_release: ${{ steps.version.outputs.should_release }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare version
+        id: version
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_REF_NAME: ${{ github.ref_name }}
+        run: |
+          function Read-Version {
+            param([string] $Contents)
+
+            [xml] $project = $Contents
+            $value = [string] $project.Project.PropertyGroup.VersionPrefix
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw 'Directory.Build.props does not contain VersionPrefix.'
+            }
+
+            $value.Trim()
+          }
+
+          $currentVersion = Read-Version (Get-Content -Raw 'Directory.Build.props')
+          $changed = $false
+          $shouldRelease = $false
+          $releaseTag = ''
+
+          if ($env:EVENT_NAME -eq 'push' -and $env:EVENT_REF -eq 'refs/heads/master') {
+            $beforeSha = $env:EVENT_BEFORE
+            if ([string]::IsNullOrWhiteSpace($beforeSha) -or $beforeSha -match '^0+$') {
+              $beforeSha = (git rev-parse HEAD^).Trim()
+            }
+
+            $previousPath = "{0}:Directory.Build.props" -f $beforeSha
+            $previousContents = git show $previousPath 2>$null | Out-String
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($previousContents)) {
+              throw "Unable to read Directory.Build.props at $beforeSha."
+            }
+
+            $previousVersion = Read-Version $previousContents
+            $changed = $currentVersion -ne $previousVersion
+            if ($changed) {
+              $shouldRelease = $true
+              $releaseTag = "v$currentVersion"
+            }
+          }
+          elseif ($env:EVENT_NAME -eq 'push' -and $env:EVENT_REF -like 'refs/tags/v*') {
+            $shouldRelease = $true
+            $releaseTag = $env:EVENT_REF_NAME
+          }
+
+          "current=$currentVersion" >> $env:GITHUB_OUTPUT
+          "changed=$($changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "should_release=$($shouldRelease.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
+
   test:
     name: Test
     runs-on: windows-latest
@@ -36,7 +105,7 @@ jobs:
   publish:
     name: Publish Windows executable
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-    needs: test
+    needs: [test, version]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -86,8 +155,19 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: needs.version.outputs.should_release == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" ".\artifacts\publish\win-x64\MWDA-Control.exe" --repo "$env:GITHUB_REPOSITORY" --title "MWDA Control $env:GITHUB_REF_NAME" --generate-notes
+          RELEASE_TAG: ${{ needs.version.outputs.release_tag }}
+        run: |
+          $existing = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "Release $env:RELEASE_TAG already exists; leaving it unchanged."
+            exit 0
+          }
+
+          gh release create "$env:RELEASE_TAG" "./artifacts/publish/win-x64/MWDA-Control.exe" --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "MWDA Control $env:RELEASE_TAG" --generate-notes
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release creation failed with exit code $LASTEXITCODE."
+          }

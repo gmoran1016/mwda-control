@@ -111,10 +111,11 @@ The workflow in `.github/workflows/release.yml`:
 
 - Runs restore and the non-live test suite on pushes to `master`, pull requests, and manual runs.
 - Builds a self-contained single executable on pushes to `master`, manual workflow runs, and version-tag pushes.
-- Builds the same executable and attaches it to a GitHub Release when a `v*` tag is pushed.
+- Creates a GitHub Release automatically when `Directory.Build.props` changes its `VersionPrefix` on a push to `master`; the release is tagged `v<version>`.
+- Also accepts manually pushed `v*` tags for releases.
 - Verifies that the publish directory contains exactly one file: `MWDA-Control.exe`.
 
-To publish a release from a checked-out repository with GitHub CLI:
+The normal release path is to bump `VersionPrefix` and push `master`. To manually publish a release from a checked-out repository with GitHub CLI:
 
 ```powershell
 git tag v1.0.0
